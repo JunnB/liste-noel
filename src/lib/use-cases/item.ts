@@ -42,7 +42,13 @@ export async function update(input: UpdateInput) {
     throw new Error("Liste non trouvée");
   }
 
-  if (list.userId !== input.userId) {
+  // Autoriser la modification si :
+  // 1. L'utilisateur est le propriétaire de la liste (item normal)
+  // 2. L'utilisateur est celui qui a ajouté le cadeau bonus
+  const isOwner = list.userId === input.userId;
+  const isBonusAdder = item.isBonus && item.addedByUserId === input.userId;
+
+  if (!isOwner && !isBonusAdder) {
     throw new Error("Vous n'avez pas accès à cet article");
   }
 
@@ -71,7 +77,13 @@ export async function deleteById(id: string, userId: string) {
     throw new Error("Liste non trouvée");
   }
 
-  if (list.userId !== userId) {
+  // Autoriser la suppression si :
+  // 1. L'utilisateur est le propriétaire de la liste (item normal)
+  // 2. L'utilisateur est celui qui a ajouté le cadeau bonus
+  const isOwner = list.userId === userId;
+  const isBonusAdder = item.isBonus && item.addedByUserId === userId;
+
+  if (!isOwner && !isBonusAdder) {
     throw new Error("Vous n'avez pas accès à cet article");
   }
 

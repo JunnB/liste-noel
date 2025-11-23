@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { upsertContribution, deleteContribution, createBonusItem } from "@/actions";
+import { updateItem, deleteItem } from "@/actions";
 import toast from "@/lib/utils/toaster";
 import { formatAmountValue } from "@/lib/utils/format";
 import ContributionModal from "@/components/events/ContributionModal";
@@ -64,6 +65,7 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
 
   // Bonus Item State
   const [bonusModalOpen, setBonusModalOpen] = useState(false);
+  const [editingBonusItem, setEditingBonusItem] = useState<Item | null>(null);
   const [bonusFormData, setBonusFormData] = useState({
     title: "",
     description: "",
@@ -132,26 +134,51 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
   };
 
   const handleOpenBonusModal = () => {
+    setEditingBonusItem(null);
     setBonusFormData({ title: "", description: "", amazonUrl: "" });
+    setBonusModalOpen(true);
+  };
+
+  const handleEditBonusItem = (item: Item) => {
+    setEditingBonusItem(item);
+    setBonusFormData({
+      title: item.title,
+      description: item.description || "",
+      amazonUrl: item.amazonUrl || "",
+    });
     setBonusModalOpen(true);
   };
 
   const handleSubmitBonus = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bonusFormData.title.trim() || !selectedListId) return;
+    if (!bonusFormData.title.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const result = await createBonusItem({
-        listId: selectedListId,
-        title: bonusFormData.title,
-        description: bonusFormData.description || undefined,
-        amazonUrl: bonusFormData.amazonUrl || undefined,
-      });
+      let result;
+      
+      if (editingBonusItem) {
+        // Modifier un cadeau bonus existant
+        result = await updateItem(editingBonusItem.id, {
+          title: bonusFormData.title,
+          description: bonusFormData.description || undefined,
+          amazonUrl: bonusFormData.amazonUrl || undefined,
+        });
+      } else {
+        // Créer un nouveau cadeau bonus
+        if (!selectedListId) return;
+        result = await createBonusItem({
+          listId: selectedListId,
+          title: bonusFormData.title,
+          description: bonusFormData.description || undefined,
+          amazonUrl: bonusFormData.amazonUrl || undefined,
+        });
+      }
 
       if (result.success) {
-        toast.success("Cadeau bonus ajouté ! 🎁");
+        toast.success(editingBonusItem ? "Cadeau bonus modifié ! ✏️" : "Cadeau bonus ajouté ! 🎁");
         setBonusModalOpen(false);
+        setEditingBonusItem(null);
         setBonusFormData({ title: "", description: "", amazonUrl: "" });
         onRefresh();
       } else {
@@ -162,6 +189,23 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
       toast.error("Une erreur est survenue");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBonusItem = async (itemId: string) => {
+    if (!confirm("Supprimer ce cadeau bonus ?")) return;
+    
+    try {
+      const result = await deleteItem(itemId);
+      if (result.success) {
+        toast.success("Cadeau bonus supprimé");
+        onRefresh();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur suppression");
     }
   };
 
@@ -365,6 +409,9 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
             const isTakenFull = item.contributions.some(c => c.contributionType === 'FULL');
             const takenByUser = isTakenFull ? item.contributions.find(c => c.contributionType === 'FULL')?.user.name : null;
 
+            // Vérifier si l'utilisateur est l'ajouteur du cadeau bonus
+            const isBonusAdder = item.isBonus && item.addedByUserId === currentUser?.id;
+
             return (
               <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex justify-between items-start mb-3">
@@ -376,11 +423,34 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
                       </span>
                     )}
                   </div>
-                  {item.amazonUrl && (
-                    <a href={item.amazonUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
-                      Lien
-                    </a>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {item.amazonUrl && (
+                      <a href={item.amazonUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
+                        Lien
+                      </a>
+                    )}
+                    {/* Boutons d'édition/suppression pour l'ajouteur du cadeau bonus */}
+                    {isBonusAdder && (
+                      <div className="flex gap-1 ml-2">
+                        <button 
+                          onClick={() => handleEditBonusItem(item)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
+                          aria-label="Modifier"
+                          title="Modifier ce cadeau bonus"
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteBonusItem(item.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                          aria-label="Supprimer"
+                          title="Supprimer ce cadeau bonus"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {item.description && (
@@ -482,15 +552,20 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
       {/* Modal Cadeau Bonus */}
       <Modal
         isOpen={bonusModalOpen}
-        onClose={() => setBonusModalOpen(false)}
-        title="🎁 Ajouter un cadeau bonus surprise"
+        onClose={() => {
+          setBonusModalOpen(false);
+          setEditingBonusItem(null);
+        }}
+        title={editingBonusItem ? "✏️ Modifier le cadeau bonus" : "🎁 Ajouter un cadeau bonus surprise"}
       >
-        <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-          <p className="text-sm text-purple-800">
-            <strong>💡 Astuce :</strong> Ce cadeau sera visible par tous les participants 
-            <strong> sauf {selectedList.user.name}</strong>. C'est une surprise ! 🤫
-          </p>
-        </div>
+        {!editingBonusItem && (
+          <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+            <p className="text-sm text-purple-800">
+              <strong>💡 Astuce :</strong> Ce cadeau sera visible par tous les participants 
+              <strong> sauf {selectedList.user.name}</strong>. C'est une surprise ! 🤫
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmitBonus} className="space-y-4">
           <div>
@@ -538,7 +613,10 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
               disabled={isSubmitting}
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-colors disabled:opacity-50"
             >
-              {isSubmitting ? "Ajout en cours..." : "Ajouter la surprise 🎁"}
+              {isSubmitting 
+                ? (editingBonusItem ? "Modification..." : "Ajout en cours...") 
+                : (editingBonusItem ? "Modifier le cadeau 🎁" : "Ajouter la surprise 🎁")
+              }
             </button>
           </div>
         </form>

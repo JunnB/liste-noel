@@ -92,12 +92,13 @@ export async function getRecentActivity(
         },
       },
     }),
-    // Récupérer les items récemment ajoutés à ma liste
+    // Récupérer les items récemment ajoutés à ma liste (SAUF les bonus - c'est une surprise!)
     prisma.item.findMany({
       where: {
         list: {
           userId,
         },
+        isBonus: false, // Ne jamais montrer les items bonus au propriétaire
       },
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -184,12 +185,13 @@ export async function getStats(userId: string) {
     prisma.contribution.count({
       where: { userId },
     }),
-    // Compter les items dans mes listes (en une seule requête)
+    // Compter les items dans mes listes (SAUF les bonus - en une seule requête)
     prisma.item.count({
       where: {
         list: {
           userId,
         },
+        isBonus: false, // Ne jamais compter les items bonus
       },
     }),
   ]);
