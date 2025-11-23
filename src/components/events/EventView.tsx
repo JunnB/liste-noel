@@ -30,12 +30,21 @@ interface EventViewProps {
   event: Event;
   myList: any; // MyListTab gérera le typage
   user: User;
-  onRefresh: () => void;
+  onRefresh?: () => void; // Optionnel maintenant
 }
 
 export default function EventView({ event, myList, user, onRefresh }: EventViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"my-list" | "participants">("my-list");
+
+  // Fonction de refresh qui utilise router.refresh() si onRefresh n'est pas fourni
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      router.refresh();
+    }
+  };
 
   const handleCopyCode = () => {
     const url = `${window.location.origin}/events/join?code=${event.invitationCode}`;
@@ -129,14 +138,14 @@ export default function EventView({ event, myList, user, onRefresh }: EventViewP
           <MyListTab 
             eventId={event.id} 
             list={myList} 
-            onRefresh={onRefresh} 
+            onRefresh={handleRefresh} 
           />
         ) : (
           <ParticipantsTab 
             participants={event.participants} 
             lists={event.lists} 
             currentUser={user}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
           />
         )}
       </div>

@@ -1,82 +1,42 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { getEventWithLists, getMyList } from "@/actions";
-import toast from "@/lib/utils/toaster";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import * as eventUseCases from "@/lib/use-cases/event";
 import EventView from "@/components/events/EventView";
-import EventDetailSkeleton from "@/components/skeletons/EventDetailSkeleton";
 
-export default function EventDetailPage() {
-  const router = useRouter();
-  const params = useParams();
-  const eventId = params.id as string;
+export default async function EventDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  // Auth SSR
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-  const [event, setEvent] = useState<any | null>(null);
-  const [myList, setMyList] = useState<any | null>(null);
-  const [user, setUser] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetchData = async () => {
-    try {
-      const sessionResponse = await fetch("/api/auth/get-session");
-      if (!sessionResponse.ok) {
-        router.push("/auth/login");
-        return;
-      }
-
-      const sessionData = await sessionResponse.json();
-      if (!sessionData || !sessionData.user) {
-        router.push("/auth/login");
-        return;
-      }
-
-      setUser(sessionData.user);
-
-      // Optimisation : Les 2 appels sont déjà parallélisés avec Promise.all
-      const [eventResult, myListResult] = await Promise.all([
-        getEventWithLists(eventId),
-        getMyList(eventId),
-      ]);
-
-      if (eventResult.success) {
-        setEvent(eventResult.data);
-      } else {
-        toast.error(eventResult.error);
-        router.push("/events");
-      }
-
-      if (myListResult.success) {
-        setMyList(myListResult.data);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      router.push("/events");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  if (loading) {
-    return <EventDetailSkeleton />;
+  if (!session?.user) {
+    redirect("/auth/login");
   }
 
-  if (!event || !user) {
-    return null;
-  }
+  const { id: eventId } = await params;
 
-  const handleRefresh = () => {
-    fetchData();
-  };
+  // Appels directs aux use-cases en parallèle
+  const [event, myList] = await Promise.all([
+    eventUseCases.getEventWithLists(eventId, session.user.id),
+    eventUseCases.getMyList(eventId, session.user.id),
+  ]);
 
   return (
     <main className="px-4 py-8">
-      <EventView event={event} myList={myList} user={user} onRefresh={handleRefresh} />
+      <EventView
+        event={event as any}
+        myList={myList as any}
+        user={{
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+        }}
+      />
     </main>
   );
 }

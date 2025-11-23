@@ -43,7 +43,7 @@ export default function ContributionModal({
   const isFirstContribution = !existingTotalPrice && !existingContribution;
   
   const [contributionType, setContributionType] = useState<ContributionType>(
-    existingContribution?.contributionType === "FULL" ? "FULL" : "PARTIAL"
+    existingContribution?.contributionType === "PARTIAL" ? "PARTIAL" : "FULL"
   );
   const [totalPrice, setTotalPrice] = useState(
     existingContribution?.totalPrice?.toString() || existingTotalPrice?.toString() || ""
@@ -159,19 +159,19 @@ export default function ContributionModal({
             </div>
             
             {/* Checkbox "J'ai avancé l'argent" */}
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <label className="flex items-start gap-3 cursor-pointer">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-5 rounded-xl border-2 border-amber-300 shadow-sm">
+              <label className="flex items-start gap-4 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={hasAdvanced}
                   onChange={(e) => setHasAdvanced(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-noel-green border-gray-300 rounded focus:ring-noel-green"
+                  className="mt-1 w-5 h-5 text-amber-600 border-amber-400 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-blue-900">
+                  <div className="font-bold text-amber-900 text-base flex items-center gap-2">
                     💳 J'ai avancé l'argent pour ce cadeau
                   </div>
-                  <div className="text-sm text-blue-700 mt-1">
+                  <div className="text-sm text-amber-800 mt-1.5 font-medium">
                     Les autres participants devront vous rembourser leur part
                   </div>
                 </div>
@@ -304,19 +304,19 @@ export default function ContributionModal({
                 </div>
                 
                 {/* Checkbox "J'ai avancé l'argent" */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <label className="flex items-start gap-3 cursor-pointer">
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-5 rounded-xl border-2 border-amber-300 shadow-sm">
+                  <label className="flex items-start gap-4 cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={hasAdvanced}
                       onChange={(e) => setHasAdvanced(e.target.checked)}
-                      className="mt-1 w-4 h-4 text-noel-green border-gray-300 rounded focus:ring-noel-green"
+                      className="mt-1 w-5 h-5 text-amber-600 border-amber-400 rounded focus:ring-amber-500 focus:ring-2 cursor-pointer"
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-blue-900">
+                      <div className="font-bold text-amber-900 text-base flex items-center gap-2">
                         💳 J'ai avancé l'argent pour ce cadeau
                       </div>
-                      <div className="text-sm text-blue-700 mt-1">
+                      <div className="text-sm text-amber-800 mt-1.5 font-medium">
                         Les autres participants devront vous rembourser leur part
                       </div>
                     </div>
