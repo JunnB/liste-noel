@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import MyListTab from "./MyListTab";
 import ParticipantsTab from "./ParticipantsTab";
 import toast from "@/lib/utils/toaster";
+import { formatAmountValue } from "@/lib/utils/format";
 
 // Types (simplifiés ou importés)
 interface User {
@@ -83,7 +84,7 @@ export default function EventView({ event, myList, user, onRefresh }: EventViewP
                 <div>
                   <span className="text-xs text-gray-600 font-medium">Mes contributions :</span>
                   <span className="ml-2 text-lg font-bold text-noel-olive">
-                    {myTotalContributions.toFixed(0)}€
+                    {formatAmountValue(myTotalContributions)}€
                   </span>
                 </div>
               </div>

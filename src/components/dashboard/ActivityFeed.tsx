@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Activity } from "@/lib/use-cases/activity";
+import { formatAmountValue } from "@/lib/utils/format";
 
 interface ActivityFeedProps {
   activities: Activity[];
@@ -52,23 +53,23 @@ function getActivityText(activity: Activity): { title: string; subtitle?: string
       if (metadata.contributorName) {
         return {
           title: `${metadata.contributorName} a participé`,
-          subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${metadata.amount?.toFixed(0)}€`,
+          subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${formatAmountValue(metadata.amount || 0)}€`,
         };
       }
       return {
-        title: `Vous avez contribué ${metadata.amount?.toFixed(0)}€`,
+        title: `Vous avez contribué ${formatAmountValue(metadata.amount || 0)}€`,
         subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle}`,
       };
     case "contribution_updated":
       if (metadata.contributorName) {
         return {
           title: `${metadata.contributorName} a modifié sa participation`,
-          subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${metadata.amount?.toFixed(0)}€`,
+          subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${formatAmountValue(metadata.amount || 0)}€`,
         };
       }
       return {
         title: `Vous avez modifié votre participation`,
-        subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${metadata.amount?.toFixed(0)}€`,
+        subtitle: `Cadeau pour ${metadata.listOwnerName}: ${metadata.itemTitle} • ${formatAmountValue(metadata.amount || 0)}€`,
       };
     case "item_added":
       return {

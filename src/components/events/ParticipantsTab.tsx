@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { upsertContribution, deleteContribution } from "@/actions/contributions";
 import toast from "@/lib/utils/toaster";
+import { formatAmountValue } from "@/lib/utils/format";
 import ContributionModal from "@/components/events/ContributionModal";
 import ContributionStatusBadge from "@/components/events/ContributionStatusBadge";
 
@@ -122,11 +123,13 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
   // Calculs pour la barre de progression
   const getProgress = (item: Item) => {
     const price = item.contributions.find(c => c.totalPrice)?.totalPrice || 0;
-    const contributed = item.contributions.reduce((sum, c) => sum + c.amount, 0);
+    // Arrondir à 2 décimales pour éviter les erreurs de précision
+    const contributed = Math.round(item.contributions.reduce((sum, c) => sum + c.amount, 0) * 100) / 100;
+    const roundedPrice = Math.round(price * 100) / 100;
     return {
-      price,
+      price: roundedPrice,
       contributed,
-      percent: price > 0 ? Math.min((contributed / price) * 100, 100) : 0
+      percent: roundedPrice > 0 ? Math.min((contributed / roundedPrice) * 100, 100) : 0
     };
   };
 
@@ -140,7 +143,8 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
 
     list.items.forEach(item => {
       const { price, contributed } = getProgress(item);
-      if (price > 0 && contributed >= price) {
+      // Tolérance de 0.01€ pour les erreurs d'arrondi
+      if (price > 0 && contributed >= price - 0.01) {
         completed++;
       } else if (item.contributions.length > 0) {
         inProgress++;
@@ -242,8 +246,9 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
     const aProgress = getProgress(a);
     const bProgress = getProgress(b);
     
-    const aCompleted = aProgress.price > 0 && aProgress.contributed >= aProgress.price;
-    const bCompleted = bProgress.price > 0 && bProgress.contributed >= bProgress.price;
+    // Tolérance de 0.01€ pour les erreurs d'arrondi
+    const aCompleted = aProgress.price > 0 && aProgress.contributed >= aProgress.price - 0.01;
+    const bCompleted = bProgress.price > 0 && bProgress.contributed >= bProgress.price - 0.01;
     
     // Non terminés d'abord
     if (aCompleted && !bCompleted) return 1;
@@ -299,7 +304,8 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
           sortedItems.map((item) => {
             const { price, contributed, percent } = getProgress(item);
             const myContribution = item.contributions.find(c => c.userId === currentUser?.id);
-            const isFullyFunded = price > 0 && contributed >= price;
+            // Tolérance de 0.01€ pour les erreurs d'arrondi
+            const isFullyFunded = price > 0 && contributed >= price - 0.01;
             
             // Détecter si quelqu'un a pris en entier
             const isTakenFull = item.contributions.some(c => c.contributionType === 'FULL');
@@ -341,7 +347,7 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
                         >
                           <span className="font-medium text-gray-700">{c.user.name}</span>
                           <span className="text-gray-500">•</span>
-                          <span className="font-bold text-noel-green">{c.amount.toFixed(0)}€</span>
+                          <span className="font-bold text-noel-green">{formatAmountValue(c.amount)}€</span>
                         </div>
                       ))}
                     </div>
@@ -356,7 +362,7 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
                         onClick={() => handleOpenContribution(item, myContribution)}
                         className="text-sm text-blue-600 font-medium px-3 py-2 bg-blue-50 rounded-lg hover:bg-blue-100"
                       >
-                        Modifier ma part ({myContribution.amount.toFixed(0)}€)
+                        Modifier ma part ({formatAmountValue(myContribution.amount)}€)
                       </button>
                       <button
                         onClick={() => handleDeleteContribution(item.id)}

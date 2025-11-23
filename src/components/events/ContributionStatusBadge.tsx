@@ -1,5 +1,7 @@
 "use client";
 
+import { formatAmountValue } from "@/lib/utils/format";
+
 interface ContributionStatusBadgeProps {
   totalPrice?: number;
   contributed: number;
@@ -11,9 +13,13 @@ export default function ContributionStatusBadge({
   contributed,
   contributorsCount,
 }: ContributionStatusBadgeProps) {
+  // Arrondir les montants à 2 décimales pour éviter les erreurs de précision
+  const roundedContributed = Math.round(contributed * 100) / 100;
+  const roundedTotalPrice = totalPrice ? Math.round(totalPrice * 100) / 100 : 0;
+  
   // Calculer le pourcentage
-  const percent = totalPrice && totalPrice > 0 
-    ? Math.min((contributed / totalPrice) * 100, 100) 
+  const percent = roundedTotalPrice > 0 
+    ? Math.min((roundedContributed / roundedTotalPrice) * 100, 100) 
     : 0;
 
   // Déterminer le statut
@@ -31,7 +37,8 @@ export default function ContributionStatusBadge({
     badgeClasses = "bg-gray-100 border-gray-200";
     icon = "○";
     progressColor = "bg-gray-300";
-  } else if (totalPrice && contributed >= totalPrice) {
+  } else if (roundedTotalPrice > 0 && roundedContributed >= roundedTotalPrice - 0.01) {
+    // Tolérance de 0.01€ pour les erreurs d'arrondi
     status = "completed";
     statusText = "Financé";
     statusColor = "text-green-700";
@@ -48,7 +55,7 @@ export default function ContributionStatusBadge({
   }
 
   // Si pas de prix total, afficher uniquement le badge
-  if (!totalPrice || totalPrice === 0) {
+  if (!roundedTotalPrice || roundedTotalPrice === 0) {
     return (
       <div
         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${badgeClasses} ${statusColor} text-xs font-bold`}
@@ -71,7 +78,7 @@ export default function ContributionStatusBadge({
           <span>{statusText}</span>
         </div>
         <div className="text-xs font-bold text-gray-700">
-          {contributed.toFixed(0)}€ / {totalPrice.toFixed(0)}€
+          {formatAmountValue(roundedContributed)}€ / {formatAmountValue(roundedTotalPrice)}€
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import { getUserContributions, upsertContribution, deleteContribution } from "@/
 import { getMyDebts, settleDebt } from "@/actions/debts";
 import { getMyEvents } from "@/actions";
 import toast from "@/lib/utils/toaster";
+import { formatAmountValue } from "@/lib/utils/format";
 import ContributionModal from "@/components/events/ContributionModal";
 
 interface Contribution {
@@ -353,14 +354,14 @@ export default function ContributionsPage() {
                       <div>
                         <span className="font-medium">Ma participation:</span>{" "}
                         <span className="text-noel-green font-bold text-lg">
-                          {contrib.amount.toFixed(0)}€
+                          {formatAmountValue(contrib.amount)}€
                         </span>
                       </div>
                       {contrib.totalPrice && (
                         <div>
                           <span className="font-medium">Prix total:</span>{" "}
                           <span className="font-bold">
-                            {contrib.totalPrice.toFixed(0)}€
+                            {formatAmountValue(contrib.totalPrice)}€
                           </span>
                         </div>
                       )}
@@ -408,7 +409,7 @@ export default function ContributionsPage() {
                           {debt.toUser.name}
                         </span>
                         <span className="text-2xl font-bold text-noel-red ml-auto">
-                          {debt.amount.toFixed(0)}€
+                          {formatAmountValue(debt.amount)}€
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-1">
