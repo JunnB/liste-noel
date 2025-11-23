@@ -22,6 +22,10 @@ export type ContributionWithDetails = Contribution & {
       id: string;
       title: string;
       userId: string;
+      event: {
+        id: string;
+        title: string;
+      };
     };
   };
 };
@@ -124,6 +128,12 @@ export async function findByUserId(userId: string): Promise<ContributionWithDeta
               id: true,
               title: true,
               userId: true,
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
             },
           },
         },

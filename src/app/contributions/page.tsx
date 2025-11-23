@@ -109,7 +109,7 @@ export default function ContributionsPage() {
       ]);
 
       if (contributionsResult.success) {
-        setContributions(contributionsResult.data);
+        setContributions(contributionsResult.data as unknown as Contribution[]);
       }
 
       if (debtsResult.success) {
