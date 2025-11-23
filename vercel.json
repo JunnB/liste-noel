@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npx prisma migrate deploy && next build",
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "BETTER_AUTH_URL": "@better_auth_url",
+    "BETTER_AUTH_SECRET": "@better_auth_secret"
+  }
+}
