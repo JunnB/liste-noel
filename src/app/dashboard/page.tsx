@@ -3,19 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getMyEvents } from "@/actions";
+import { getRecentActivity, getStats } from "@/actions/activity";
 import toast from "@/lib/utils/toaster";
-
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  createdAt: Date;
-  isCreator?: boolean;
-  participants: Array<{
-    id: string;
-  }>;
-}
+import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import StatsCards from "@/components/dashboard/StatsCards";
+import type { Activity } from "@/lib/use-cases/activity";
 
 interface User {
   id: string;
@@ -25,8 +17,9 @@ interface User {
 
 export default function Dashboard() {
   const router = useRouter();
-  const [events, setEvents] = useState<Event[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [stats, setStats] = useState({ eventsCount: 0, contributionsCount: 0, itemsCount: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,11 +40,20 @@ export default function Dashboard() {
 
         setUser(sessionData.user);
 
-        const eventsResult = await getMyEvents();
-        if (eventsResult.success) {
-          setEvents(eventsResult.data as Event[]);
+        // Récupérer l'activité récente
+        const activityResult = await getRecentActivity();
+        if (activityResult.success) {
+          setActivities(activityResult.data);
         } else {
-          toast.error(eventsResult.error);
+          toast.error(activityResult.error);
+        }
+
+        // Récupérer les statistiques
+        const statsResult = await getStats();
+        if (statsResult.success) {
+          setStats(statsResult.data);
+        } else {
+          toast.error(statsResult.error);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -72,28 +74,34 @@ export default function Dashboard() {
     );
   }
 
+  const hasNoActivity = stats.eventsCount === 0 && stats.contributionsCount === 0 && stats.itemsCount === 0;
+
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
-      {/* Welcome Section */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-noel-red mb-1">
-          Bonjour {user?.name}
-        </h2>
-        <p className="text-gray-600 text-sm">
-          Prêt pour les fêtes ?
+    <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+      {/* Section 1: Bienvenue */}
+      <div className="bg-gradient-to-r from-noel-red/10 via-noel-gold/10 to-noel-green/10 p-6 rounded-xl border border-noel-red/20">
+        <h1 className="text-3xl font-bold text-noel-text mb-2">
+          Bonjour {user?.name} 👋
+        </h1>
+        <p className="text-gray-600">
+          {stats.eventsCount} {stats.eventsCount > 1 ? "événements" : "événement"} • {stats.contributionsCount} {stats.contributionsCount > 1 ? "contributions" : "contribution"}
         </p>
       </div>
 
-      {/* Actions / Stats Overview */}
-      {events.length === 0 && (
-        <div className="bg-white p-6 rounded-xl border-2 border-dashed border-noel-red/20 text-center mb-8">
-          <p className="text-noel-text font-medium mb-4">
-            Vous ne participez à aucun événement pour le moment.
+      {/* Message si aucune activité */}
+      {hasNoActivity && (
+        <div className="bg-white p-8 rounded-xl border-2 border-dashed border-noel-red/20 text-center">
+          <div className="text-6xl mb-4">🎄</div>
+          <h3 className="text-xl font-bold text-noel-text mb-2">
+            Bienvenue sur votre espace de Noël !
+          </h3>
+          <p className="text-gray-600 mb-6">
+            Commencez par créer un groupe ou rejoindre celui de vos proches.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link 
               href="/events" 
-              className="bg-noel-red text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition-colors inline-flex items-center justify-center gap-2"
+              className="bg-noel-red text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700 transition-colors inline-flex items-center justify-center gap-2 shadow-lg shadow-noel-red/20"
             >
               <span>+</span> Créer un groupe
             </Link>
@@ -101,63 +109,60 @@ export default function Dashboard() {
               href="/events/join" 
               className="bg-white border-2 border-noel-green text-noel-green px-6 py-3 rounded-lg font-bold hover:bg-green-50 transition-colors inline-flex items-center justify-center gap-2"
             >
-               Rejoindre un groupe
+              Rejoindre un groupe
             </Link>
           </div>
         </div>
       )}
 
-      {/* Mes Événements */}
-      {events.length > 0 && (
+      {/* Section 2: Stats Cards (si activité) */}
+      {!hasNoActivity && (
+        <StatsCards 
+          eventsCount={stats.eventsCount}
+          contributionsCount={stats.contributionsCount}
+          itemsCount={stats.itemsCount}
+        />
+      )}
+
+      {/* Section 3: Activité Récente */}
+      {!hasNoActivity && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-noel-text">Mes Groupes</h3>
-            <Link href="/events" className="text-sm text-noel-red font-medium">
-              Tout voir
-            </Link>
+            <h2 className="text-2xl font-bold text-noel-text">📅 Activité Récente</h2>
           </div>
+          <ActivityFeed activities={activities} />
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {events.map((event) => (
-              <Link
-                key={event.id}
-                href={`/events/${event.id}`}
-                className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-noel-red/30 transition-all"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="w-10 h-10 rounded-full bg-noel-red/10 flex items-center justify-center text-xl">
-                    🎁
-                  </div>
-                  {event.isCreator && (
-                    <span className="bg-noel-gold/20 text-noel-olive text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wider">
-                      Admin
-                    </span>
-                  )}
-                </div>
-                
-                <h4 className="text-lg font-bold text-gray-900 mb-1 truncate">
-                  {event.title}
-                </h4>
-                
-                <div className="flex items-center text-sm text-gray-500 gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  {event.participants.length} participant{event.participants.length > 1 ? "s" : ""}
-                </div>
-              </Link>
-            ))}
-
-            {/* Add Button Card */}
-             <Link
-                href="/events"
-                className="bg-gray-50 p-5 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 hover:bg-gray-100 transition-colors min-h-[140px]"
-              >
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-400">
-                  +
-                </div>
-                <span className="text-sm font-medium text-gray-500">Nouveau groupe</span>
-              </Link>
+      {/* Section 4: Raccourcis Rapides */}
+      {!hasNoActivity && (
+        <div>
+          <h2 className="text-2xl font-bold text-noel-text mb-4">🎯 Actions Rapides</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Link
+              href="/events"
+              className="bg-white p-6 rounded-xl border border-gray-200 hover:border-noel-red hover:shadow-md transition-all text-center"
+            >
+              <div className="text-4xl mb-3">🎁</div>
+              <div className="font-bold text-noel-text">Mes Événements</div>
+              <div className="text-sm text-gray-500 mt-1">Gérer mes événements</div>
+            </Link>
+            <Link
+              href="/contributions"
+              className="bg-white p-6 rounded-xl border border-gray-200 hover:border-noel-gold hover:shadow-md transition-all text-center"
+            >
+              <div className="text-4xl mb-3">💰</div>
+              <div className="font-bold text-noel-text">Contributions</div>
+              <div className="text-sm text-gray-500 mt-1">Voir mes participations</div>
+            </Link>
+            <Link
+              href="/events"
+              className="bg-gradient-to-br from-noel-green/10 to-emerald-50 p-6 rounded-xl border border-noel-green/20 hover:shadow-md transition-all text-center"
+            >
+              <div className="text-4xl mb-3">➕</div>
+              <div className="font-bold text-noel-text">Créer un Groupe</div>
+              <div className="text-sm text-gray-500 mt-1">Nouveau groupe de cadeaux</div>
+            </Link>
           </div>
         </div>
       )}

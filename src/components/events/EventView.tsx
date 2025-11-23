@@ -42,15 +42,51 @@ export default function EventView({ event, myList, user, onRefresh }: EventViewP
     toast.success("Lien copié ! Partagez-le à vos proches.");
   };
 
+  // Calculer le total des contributions de l'utilisateur pour cet événement
+  const calculateMyTotalContributions = () => {
+    let total = 0;
+    
+    // Parcourir toutes les listes de l'événement
+    event.lists.forEach((list: any) => {
+      // Parcourir tous les items de chaque liste
+      list.items?.forEach((item: any) => {
+        // Parcourir toutes les contributions de chaque item
+        item.contributions?.forEach((contribution: any) => {
+          // Si c'est ma contribution, ajouter le montant au total
+          if (contribution.userId === user.id) {
+            total += contribution.amount;
+          }
+        });
+      });
+    });
+    
+    return total;
+  };
+
+  const myTotalContributions = calculateMyTotalContributions();
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header simple */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
         <div className="flex justify-between items-start mb-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold text-noel-red mb-1">{event.title}</h1>
             {event.description && (
-              <p className="text-gray-600 text-sm">{event.description}</p>
+              <p className="text-gray-600 text-sm mb-3">{event.description}</p>
+            )}
+            
+            {/* Total des contributions */}
+            {myTotalContributions > 0 && (
+              <div className="inline-flex items-center gap-2 bg-gradient-to-r from-noel-gold/10 to-amber-50 px-4 py-2 rounded-lg border border-noel-gold/20">
+                <span className="text-xl">💰</span>
+                <div>
+                  <span className="text-xs text-gray-600 font-medium">Mes contributions :</span>
+                  <span className="ml-2 text-lg font-bold text-noel-olive">
+                    {myTotalContributions.toFixed(0)}€
+                  </span>
+                </div>
+              </div>
             )}
           </div>
           <button
