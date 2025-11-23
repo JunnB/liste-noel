@@ -34,7 +34,7 @@ export async function upsert(data: {
   contributionType: string;
   note?: string | null;
 }): Promise<ContributionWithUser> {
-  return prisma.contribution.upsert({
+  const result = await prisma.contribution.upsert({
     where: {
       itemId_userId: {
         itemId: data.itemId,
@@ -65,6 +65,8 @@ export async function upsert(data: {
       },
     },
   });
+  
+  return result as ContributionWithUser;
 }
 
 export async function deleteByItemIdAndUserId(
