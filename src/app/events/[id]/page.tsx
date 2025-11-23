@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { getEventWithLists, getMyList } from "@/actions";
 import toast from "@/lib/utils/toaster";
 import EventView from "@/components/events/EventView";
+import EventDetailSkeleton from "@/components/skeletons/EventDetailSkeleton";
 
 export default function EventDetailPage() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function EventDetailPage() {
 
       setUser(sessionData.user);
 
+      // Optimisation : Les 2 appels sont déjà parallélisés avec Promise.all
       const [eventResult, myListResult] = await Promise.all([
         getEventWithLists(eventId),
         getMyList(eventId),
@@ -61,11 +63,7 @@ export default function EventDetailPage() {
   }, [eventId]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-noel-text">Chargement...</div>
-      </div>
-    );
+    return <EventDetailSkeleton />;
   }
 
   if (!event || !user) {

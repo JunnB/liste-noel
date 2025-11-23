@@ -27,22 +27,90 @@ export async function getRecentActivity(
   userId: string,
   limit = 10
 ): Promise<Activity[]> {
-  const activities: Activity[] = [];
+  // Optimisation : Paralléliser toutes les requêtes
+  const [recentEvents, recentContributions, recentItems] = await Promise.all([
+    // Récupérer les événements récents (créés ou rejoints)
+    prisma.event.findMany({
+      where: {
+        OR: [
+          { creatorId: userId },
+          { participants: { some: { userId } } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        creatorId: true,
+      },
+    }),
+    // Récupérer les contributions récentes
+    prisma.contribution.findMany({
+      where: {
+        OR: [
+          // Mes contributions sur les cadeaux des autres
+          {
+            userId,
+            item: {
+              list: {
+                userId: { not: userId },
+              },
+            },
+          },
+          // Les contributions des autres sur les cadeaux des autres (pas les miens)
+          {
+            userId: { not: userId },
+            item: {
+              list: {
+                userId: { not: userId },
+              },
+            },
+          },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        userId: true,
+        amount: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { select: { name: true } },
+        item: {
+          select: {
+            id: true,
+            title: true,
+            list: {
+              select: {
+                user: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    }),
+    // Récupérer les items récemment ajoutés à ma liste
+    prisma.item.findMany({
+      where: {
+        list: {
+          userId,
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+  ]);
 
-  // Récupérer les événements récents (créés ou rejoints)
-  const recentEvents = await prisma.event.findMany({
-    where: {
-      OR: [
-        { creatorId: userId },
-        { participants: { some: { userId } } },
-      ],
-    },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    include: {
-      creator: { select: { id: true, name: true } },
-    },
-  });
+  const activities: Activity[] = [];
 
   // Ajouter les événements aux activités
   recentEvents.forEach((event) => {
@@ -56,49 +124,6 @@ export async function getRecentActivity(
         eventTitle: event.title,
       },
     });
-  });
-
-  // Récupérer les contributions récentes
-  const recentContributions = await prisma.contribution.findMany({
-    where: {
-      OR: [
-        // Mes contributions sur les cadeaux des autres
-        {
-          userId,
-          item: {
-            list: {
-              userId: { not: userId },
-            },
-          },
-        },
-        // Les contributions des autres sur les cadeaux des autres (pas les miens)
-        {
-          userId: { not: userId },
-          item: {
-            list: {
-              userId: { not: userId },
-            },
-          },
-        },
-      ],
-    },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    include: {
-      user: { select: { id: true, name: true } },
-      item: {
-        select: {
-          id: true,
-          title: true,
-          list: {
-            select: {
-              userId: true,
-              user: { select: { name: true } },
-            },
-          },
-        },
-      },
-    },
   });
 
   // Ajouter les contributions aux activités
@@ -121,36 +146,21 @@ export async function getRecentActivity(
     });
   });
 
-  // Récupérer les items récemment ajoutés à ma liste
-  const myLists = await prisma.list.findMany({
-    where: { userId },
-    select: { id: true },
-  });
-
-  if (myLists.length > 0) {
-    const recentItems = await prisma.item.findMany({
-      where: {
-        listId: { in: myLists.map((l) => l.id) },
+  // Ajouter les items aux activités
+  recentItems.forEach((item) => {
+    activities.push({
+      id: `item-${item.id}`,
+      type:
+        item.createdAt.getTime() === item.updatedAt.getTime()
+          ? "item_added"
+          : "item_updated",
+      createdAt: item.createdAt,
+      metadata: {
+        itemId: item.id,
+        itemTitle: item.title,
       },
-      orderBy: { createdAt: "desc" },
-      take: 5,
     });
-
-    recentItems.forEach((item) => {
-      activities.push({
-        id: `item-${item.id}`,
-        type:
-          item.createdAt.getTime() === item.updatedAt.getTime()
-            ? "item_added"
-            : "item_updated",
-        createdAt: item.createdAt,
-        metadata: {
-          itemId: item.id,
-          itemTitle: item.title,
-        },
-      });
-    });
-  }
+  });
 
   // Trier par date décroissante et limiter
   return activities
@@ -159,32 +169,30 @@ export async function getRecentActivity(
 }
 
 export async function getStats(userId: string) {
-  // Compter les événements
-  const eventsCount = await prisma.event.count({
-    where: {
-      OR: [
-        { creatorId: userId },
-        { participants: { some: { userId } } },
-      ],
-    },
-  });
-
-  // Compter les contributions
-  const contributionsCount = await prisma.contribution.count({
-    where: { userId },
-  });
-
-  // Compter les items dans mes listes
-  const myLists = await prisma.list.findMany({
-    where: { userId },
-    select: { id: true },
-  });
-
-  const itemsCount = await prisma.item.count({
-    where: {
-      listId: { in: myLists.map((l) => l.id) },
-    },
-  });
+  // Optimisation : Paralléliser toutes les requêtes
+  const [eventsCount, contributionsCount, itemsCount] = await Promise.all([
+    // Compter les événements
+    prisma.event.count({
+      where: {
+        OR: [
+          { creatorId: userId },
+          { participants: { some: { userId } } },
+        ],
+      },
+    }),
+    // Compter les contributions
+    prisma.contribution.count({
+      where: { userId },
+    }),
+    // Compter les items dans mes listes (en une seule requête)
+    prisma.item.count({
+      where: {
+        list: {
+          userId,
+        },
+      },
+    }),
+  ]);
 
   return {
     eventsCount,

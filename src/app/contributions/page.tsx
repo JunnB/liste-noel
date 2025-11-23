@@ -10,6 +10,7 @@ import { getMyEvents } from "@/actions";
 import toast from "@/lib/utils/toaster";
 import { formatAmountValue } from "@/lib/utils/format";
 import ContributionModal from "@/components/events/ContributionModal";
+import ContributionsSkeleton from "@/components/skeletons/ContributionsSkeleton";
 
 interface Contribution {
   id: string;
@@ -102,6 +103,7 @@ export default function ContributionsPage() {
       const sessionData = await sessionResponse.json();
       setUser(sessionData.user);
 
+      // Optimisation : Les 3 appels sont déjà parallélisés avec Promise.all
       const [contributionsResult, debtsResult, eventsResult] = await Promise.all([
         getUserContributions(),
         getMyDebts(),
@@ -221,11 +223,7 @@ export default function ContributionsPage() {
   const debtsReceivedCount = debts.filter((d) => d.toUser.id === user?.id && !d.isSettled).length;
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-noel-cream flex items-center justify-center">
-        <div className="text-noel-text">Chargement...</div>
-      </div>
-    );
+    return <ContributionsSkeleton />;
   }
 
   return (

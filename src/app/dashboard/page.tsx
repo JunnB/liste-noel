@@ -7,6 +7,7 @@ import { getRecentActivity, getStats } from "@/actions/activity";
 import toast from "@/lib/utils/toaster";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import StatsCards from "@/components/dashboard/StatsCards";
+import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
 import type { Activity } from "@/lib/use-cases/activity";
 
 interface User {
@@ -40,16 +41,18 @@ export default function Dashboard() {
 
         setUser(sessionData.user);
 
-        // Récupérer l'activité récente
-        const activityResult = await getRecentActivity();
+        // Optimisation : Paralléliser les appels activity et stats
+        const [activityResult, statsResult] = await Promise.all([
+          getRecentActivity(),
+          getStats(),
+        ]);
+
         if (activityResult.success) {
           setActivities(activityResult.data);
         } else {
           toast.error(activityResult.error);
         }
 
-        // Récupérer les statistiques
-        const statsResult = await getStats();
         if (statsResult.success) {
           setStats(statsResult.data);
         } else {
@@ -67,11 +70,7 @@ export default function Dashboard() {
   }, [router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-noel-text">Chargement...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const hasNoActivity = stats.eventsCount === 0 && stats.contributionsCount === 0 && stats.itemsCount === 0;

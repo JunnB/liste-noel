@@ -6,6 +6,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import { createEvent, getMyEvents } from "@/actions";
 import toast from "@/lib/utils/toaster";
+import EventsSkeleton from "@/components/skeletons/EventsSkeleton";
 
 interface Event {
   id: string;
@@ -62,6 +63,7 @@ export default function EventsPage() {
 
         setUser(sessionData.user);
 
+        // Optimisation : Un seul appel après la session
         const eventsResult = await getMyEvents();
         if (eventsResult.success) {
           setEvents(eventsResult.data as Event[]);
@@ -116,11 +118,7 @@ export default function EventsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-noel-cream flex items-center justify-center">
-        <div className="text-noel-text">Chargement...</div>
-      </div>
-    );
+    return <EventsSkeleton />;
   }
 
   return (

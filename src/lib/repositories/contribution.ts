@@ -91,27 +91,10 @@ export async function deleteByItemIdAndUserId(
 }
 
 export async function findByUserId(userId: string): Promise<ContributionWithDetails[]> {
+  // Optimisation : Requête simplifiée - récupérer uniquement les contributions de l'utilisateur
   return prisma.contribution.findMany({
     where: {
-      item: {
-        list: {
-          OR: [
-            { userId }, // Lists created by user
-            {
-              // Lists where user has contributed
-              items: {
-                some: {
-                  contributions: {
-                    some: {
-                      userId,
-                    },
-                  },
-                },
-              },
-            },
-          ],
-        },
-      },
+      userId,
     },
     include: {
       user: {
@@ -138,6 +121,9 @@ export async function findByUserId(userId: string): Promise<ContributionWithDeta
           },
         },
       },
+    },
+    orderBy: {
+      createdAt: 'desc',
     },
   });
 }
