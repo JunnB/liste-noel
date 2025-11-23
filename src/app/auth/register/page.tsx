@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signUp } from "@/lib/auth-client";
+import toast from "@/lib/utils/toaster";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,34 +21,31 @@ export default function RegisterPage() {
     setLoading(true);
 
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas");
+      const errorMsg = "Les mots de passe ne correspondent pas";
+      setError(errorMsg);
+      toast.error(errorMsg);
       setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch("/api/auth/sign-up/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+      const result = await signUp.email({
+        name,
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        throw new Error("L'enregistrement a échoué");
+      if (result.error) {
+        throw new Error(result.error.message || "L'enregistrement a échoué");
       }
 
-      const data = await response.json();
-      if (data.user) {
-        router.push("/dashboard");
-      }
+      toast.success("Compte créé avec succès !");
+      router.push("/dashboard");
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur s'est produite");
+      const errorMessage = err instanceof Error ? err.message : "Une erreur s'est produite";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

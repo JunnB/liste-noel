@@ -12,33 +12,73 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  name      String
-  password  String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  name          String
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   // Relations
-  lists         List[]
-  contributions Contribution[]
+  lists              List[]
+  contributions      Contribution[]
+  accounts           Account[]
+  sessions           Session[]
+  createdEvents      Event[]            @relation("EventCreator")
+  eventParticipants  EventParticipant[]
+}
+
+model Event {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  creatorId      String
+  invitationCode String   @unique @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  creator      User               @relation("EventCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  participants EventParticipant[]
+  lists        List[]
+
+  @@index([creatorId])
+  @@index([invitationCode])
+}
+
+model EventParticipant {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
 }
 
 model List {
-  id               String   @id @default(cuid())
-  userId           String
-  title            String
-  description      String?
-  invitationCode   String   @unique @default(cuid())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  eventId     String
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
   items Item[]
 
+  @@unique([eventId, userId])
   @@index([userId])
-  @@index([invitationCode])
+  @@index([eventId])
 }
 
 model Item {
@@ -47,7 +87,6 @@ model Item {
   title       String
   description String?
   amazonUrl   String?
-  desiredAmount Float?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -59,13 +98,14 @@ model Item {
 }
 
 model Contribution {
-  id        String   @id @default(cuid())
-  itemId    String
-  userId    String
-  amount    Float    @default(0)
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  itemId     String
+  userId     String
+  amount     Float    @default(0)
+  totalPrice Float?
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relations
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -77,29 +117,46 @@ model Contribution {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String? @db.Text
+  refreshToken      String? @db.Text
+  idToken           String? @db.Text
+  expiresAt         DateTime?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@unique([provider, providerAccountId])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountId])
   @@index([userId])
 }
 
 model Session {
   id        String   @id @default(cuid())
-  sessionToken String   @unique
+  token     String   @unique
   userId    String
-  expires   DateTime
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
 }

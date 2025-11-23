@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { signIn } from "@/lib/auth-client";
+import toast from "@/lib/utils/toaster";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,27 +19,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/sign-in/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+      const result = await signIn.email({
+        email,
+        password,
       });
 
-      if (!response.ok) {
-        throw new Error("Email ou mot de passe incorrect");
+      if (result.error) {
+        throw new Error(result.error.message || "Email ou mot de passe incorrect");
       }
 
-      const data = await response.json();
-      if (data.user) {
-        router.push("/dashboard");
-      }
+      toast.success("Connexion réussie !");
+      router.push("/dashboard");
+      router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur s'est produite");
+      const errorMessage = err instanceof Error ? err.message : "Une erreur s'est produite";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

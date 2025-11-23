@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/Header";
+import { getMyEvents } from "@/actions";
+import toast from "@/lib/utils/toaster";
 
-interface List {
+interface Event {
   id: string;
   title: string;
   description?: string;
-  invitationCode: string;
-  createdAt: string;
-  items: Array<{
+  createdAt: Date;
+  isCreator?: boolean;
+  participants: Array<{
     id: string;
-    title: string;
   }>;
 }
 
@@ -25,16 +26,14 @@ interface User {
 
 export default function Dashboard() {
   const router = useRouter();
-  const [lists, setLists] = useState<List[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showNewList, setShowNewList] = useState(false);
-  const [newListData, setNewListData] = useState({ title: "", description: "" });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get session
+        // Get session using Better Auth
         const sessionResponse = await fetch("/api/auth/get-session");
         if (!sessionResponse.ok) {
           router.push("/auth/login");
@@ -42,13 +41,20 @@ export default function Dashboard() {
         }
 
         const sessionData = await sessionResponse.json();
+        
+        if (!sessionData || !sessionData.user) {
+          router.push("/auth/login");
+          return;
+        }
+
         setUser(sessionData.user);
 
-        // Get lists
-        const listsResponse = await fetch("/api/lists");
-        if (listsResponse.ok) {
-          const listsData = await listsResponse.json();
-          setLists(listsData);
+        // Get events using Server Action
+        const eventsResult = await getMyEvents();
+        if (eventsResult.success) {
+          setEvents(eventsResult.data as Event[]);
+        } else {
+          toast.error(eventsResult.error);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -60,28 +66,6 @@ export default function Dashboard() {
 
     fetchData();
   }, [router]);
-
-  const handleCreateList = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newListData.title.trim()) return;
-
-    try {
-      const response = await fetch("/api/lists", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newListData),
-      });
-
-      if (response.ok) {
-        const newList = await response.json();
-        setLists([newList, ...lists]);
-        setNewListData({ title: "", description: "" });
-        setShowNewList(false);
-      }
-    } catch (error) {
-      console.error("Error creating list:", error);
-    }
-  };
 
   if (loading) {
     return (
@@ -101,122 +85,104 @@ export default function Dashboard() {
           <h2 className="text-3xl font-bold text-noel-red mb-2">
             Bienvenue, {user?.name} 👋
           </h2>
-          <p className="text-noel-text">Gérez vos listes de Noël</p>
+          <p className="text-noel-text">Gérez vos événements de cadeaux</p>
         </div>
 
-        {/* New List Form */}
-        {showNewList && (
-          <div className="card mb-8">
-            <h3 className="text-lg font-bold text-noel-text mb-4">
-              Créer une nouvelle liste
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <Link
+            href="/events"
+            className="card hover:shadow-lg group cursor-pointer bg-gradient-to-br from-noel-red/5 to-noel-pink/5 border border-noel-red/20"
+          >
+            <h3 className="text-lg font-bold text-noel-red group-hover:text-noel-green transition-colors mb-2">
+              🎄 Mes événements
             </h3>
-            <form onSubmit={handleCreateList} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-noel-text mb-1">
-                  Titre de la liste
-                </label>
-                <input
-                  type="text"
-                  value={newListData.title}
-                  onChange={(e) =>
-                    setNewListData({ ...newListData, title: e.target.value })
-                  }
-                  className="input-field"
-                  placeholder="Ma liste de Noël 2025"
-                  required
-                />
-              </div>
+            <p className="text-sm text-noel-text mb-3">
+              Créez et gérez vos événements de cadeaux
+            </p>
+            <div className="text-xs text-gray-500">
+              {events.length} événement{events.length > 1 ? "s" : ""}
+            </div>
+          </Link>
 
-              <div>
-                <label className="block text-sm font-medium text-noel-text mb-1">
-                  Description (optionnel)
-                </label>
-                <textarea
-                  value={newListData.description}
-                  onChange={(e) =>
-                    setNewListData({ ...newListData, description: e.target.value })
-                  }
-                  className="input-field min-h-20"
-                  placeholder="Décrivez vos envies..."
-                />
-              </div>
+          <Link
+            href="/events/join"
+            className="card hover:shadow-lg group cursor-pointer bg-gradient-to-br from-noel-green/5 to-noel-gold/5 border border-noel-green/20"
+          >
+            <h3 className="text-lg font-bold text-noel-green group-hover:text-noel-red transition-colors mb-2">
+              🎁 Rejoindre un événement
+            </h3>
+            <p className="text-sm text-noel-text mb-3">
+              Utilisez un code d'invitation pour participer
+            </p>
+            <div className="text-xs text-gray-500">
+              Entrez le code reçu
+            </div>
+          </Link>
+        </div>
 
-              <div className="flex gap-3">
-                <button type="submit" className="btn-primary flex-1">
-                  Créer la liste
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNewList(false)}
-                  className="btn-outline flex-1"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+        {/* Recent Events */}
+        <div className="mb-4">
+          <h3 className="text-xl font-bold text-noel-text mb-4">
+            Événements récents
+          </h3>
+        </div>
 
-        {!showNewList && (
-          <button onClick={() => setShowNewList(true)} className="btn-primary mb-8 w-full sm:w-auto">
-            + Créer une liste
-          </button>
-        )}
-
-        {/* Lists Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {lists.length === 0 ? (
+          {events.length === 0 ? (
             <div className="col-span-full card text-center py-12">
               <p className="text-noel-text text-lg mb-4">
-                Vous n'avez pas encore de liste
+                Vous n'avez pas encore d'événement
               </p>
-              <button
-                onClick={() => setShowNewList(true)}
-                className="btn-secondary"
-              >
-                Créer votre première liste
-              </button>
+              <p className="text-sm text-gray-500 mb-6">
+                Créez un événement pour commencer à échanger des cadeaux avec vos proches
+              </p>
+              <div className="flex gap-4 justify-center">
+                <Link href="/events" className="btn-primary">
+                  Créer un événement
+                </Link>
+                <Link href="/events/join" className="btn-secondary">
+                  Rejoindre un événement
+                </Link>
+              </div>
             </div>
           ) : (
-            lists.map((list) => (
+            events.slice(0, 4).map((event) => (
               <Link
-                key={list.id}
-                href={`/lists/${list.id}`}
+                key={event.id}
+                href={`/events/${event.id}`}
                 className="card hover:shadow-lg cursor-pointer group"
               >
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-xl font-bold text-noel-red group-hover:text-noel-green transition-colors">
-                    {list.title}
+                    {event.title}
                   </h3>
-                  <span className="text-xs bg-noel-red/10 text-noel-red px-2 py-1 rounded">
-                    {list.items.length} articles
-                  </span>
+                  {event.isCreator && (
+                    <span className="text-xs bg-noel-gold/20 text-noel-olive px-2 py-1 rounded">
+                      Créateur
+                    </span>
+                  )}
                 </div>
-                {list.description && (
+                {event.description && (
                   <p className="text-noel-text text-sm mb-3 line-clamp-2">
-                    {list.description}
+                    {event.description}
                   </p>
                 )}
                 <div className="text-xs text-gray-500">
-                  Créée le {new Date(list.createdAt).toLocaleDateString("fr-FR")}
+                  {event.participants.length} participant{event.participants.length > 1 ? "s" : ""}
                 </div>
               </Link>
             ))
           )}
         </div>
 
-        {/* Join List Section */}
-        <div className="mt-12 card bg-gradient-to-br from-noel-green/5 to-noel-red/5 border border-noel-green/20">
-          <h3 className="text-lg font-bold text-noel-green mb-2">
-            Rejoindre une liste
-          </h3>
-          <p className="text-noel-text text-sm mb-4">
-            Vous avez un code d'invitation ? Rejoignez une liste familiale
-          </p>
-          <Link href="/join" className="btn-secondary inline-block">
-            Rejoindre avec un code
-          </Link>
-        </div>
+        {events.length > 4 && (
+          <div className="mt-6 text-center">
+            <Link href="/events" className="btn-outline">
+              Voir tous les événements
+            </Link>
+          </div>
+        )}
       </main>
     </div>
   );
