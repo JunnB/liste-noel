@@ -14,6 +14,7 @@ interface ContributionModalProps {
     totalPrice?: number | null;
     contributionType?: string;
     note?: string;
+    hasAdvanced?: boolean;
   };
   existingTotalPrice?: number;
   alreadyContributed?: number; // Montant déjà contribué par d'autres
@@ -22,6 +23,7 @@ interface ContributionModalProps {
     amount?: number;
     totalPrice?: number;
     note?: string;
+    hasAdvanced?: boolean;
   }) => Promise<void>;
   isSubmitting: boolean;
 }
@@ -50,6 +52,7 @@ export default function ContributionModal({
     existingContribution?.amount?.toString() || ""
   );
   const [note, setNote] = useState(existingContribution?.note || "");
+  const [hasAdvanced, setHasAdvanced] = useState(existingContribution?.hasAdvanced || false);
 
   // Calculer le reste à payer
   const remaining = existingTotalPrice ? existingTotalPrice - alreadyContributed : 0;
@@ -68,8 +71,10 @@ export default function ContributionModal({
       amount?: number;
       totalPrice?: number;
       note?: string;
+      hasAdvanced?: boolean;
     } = {
       contributionType,
+      hasAdvanced: contributionType === "PARTIAL" ? hasAdvanced : false,
     };
 
     // Validation et construction des données
@@ -151,6 +156,26 @@ export default function ContributionModal({
                   </button>
                 )}
               </div>
+            </div>
+            
+            {/* Checkbox "J'ai avancé l'argent" */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasAdvanced}
+                  onChange={(e) => setHasAdvanced(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-noel-green border-gray-300 rounded focus:ring-noel-green"
+                />
+                <div className="flex-1">
+                  <div className="font-medium text-blue-900">
+                    💳 J'ai avancé l'argent pour ce cadeau
+                  </div>
+                  <div className="text-sm text-blue-700 mt-1">
+                    Les autres participants devront vous rembourser leur part
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         )}
@@ -277,6 +302,27 @@ export default function ContributionModal({
                     required
                   />
                 </div>
+                
+                {/* Checkbox "J'ai avancé l'argent" */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasAdvanced}
+                      onChange={(e) => setHasAdvanced(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-noel-green border-gray-300 rounded focus:ring-noel-green"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-blue-900">
+                        💳 J'ai avancé l'argent pour ce cadeau
+                      </div>
+                      <div className="text-sm text-blue-700 mt-1">
+                        Les autres participants devront vous rembourser leur part
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                
                 {/* Note uniquement pour lancer un partage */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -27,6 +27,8 @@ model User {
   sessions           Session[]
   createdEvents      Event[]            @relation("EventCreator")
   eventParticipants  EventParticipant[]
+  debtsOwed          Debt[]             @relation("DebtsOwed")
+  debtsReceived      Debt[]             @relation("DebtsReceived")
 }
 
 model Event {
@@ -93,6 +95,7 @@ model Item {
   // Relations
   list          List           @relation(fields: [listId], references: [id], onDelete: Cascade)
   contributions Contribution[]
+  debts         Debt[]
 
   @@index([listId])
 }
@@ -105,6 +108,7 @@ model Contribution {
   totalPrice       Float?
   contributionType String   @default("PARTIAL") // FULL, SHARED, PARTIAL
   note             String?
+  hasAdvanced      Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -160,4 +164,26 @@ model Verification {
   updatedAt  DateTime @updatedAt
 
   @@unique([identifier, value])
+}
+
+model Debt {
+  id         String    @id @default(cuid())
+  itemId     String
+  fromUserId String
+  toUserId   String
+  amount     Float
+  isSettled  Boolean   @default(false)
+  settledAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  item     Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  fromUser User @relation("DebtsOwed", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("DebtsReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, fromUserId, toUserId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([itemId])
 }

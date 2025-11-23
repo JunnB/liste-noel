@@ -4,24 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import Link from "next/link";
-import { getDebts, getUserContributions, upsertContribution, deleteContribution } from "@/actions";
+import { getUserContributions, upsertContribution, deleteContribution } from "@/actions";
+import { getMyDebts, settleDebt } from "@/actions/debts";
+import { getMyEvents } from "@/actions";
 import toast from "@/lib/utils/toaster";
 import ContributionModal from "@/components/events/ContributionModal";
-import ContributionStatusBadge from "@/components/events/ContributionStatusBadge";
-
-interface DebtItem {
-  itemId: string;
-  itemTitle: string;
-}
-
-interface Debt {
-  fromUser: string;
-  fromUserId: string;
-  toUser: string;
-  toUserId: string;
-  amount: number;
-  items: DebtItem[];
-}
 
 interface Contribution {
   id: string;
@@ -30,6 +17,7 @@ interface Contribution {
   totalPrice: number | null;
   contributionType: string;
   note: string | null;
+  hasAdvanced: boolean;
   item: {
     id: string;
     title: string;
@@ -37,8 +25,48 @@ interface Contribution {
       id: string;
       title: string;
       userId: string;
+      event: {
+        id: string;
+        title: string;
+      };
     };
   };
+}
+
+interface Debt {
+  id: string;
+  itemId: string;
+  amount: number;
+  isSettled: boolean;
+  settledAt: Date | null;
+  fromUser: {
+    id: string;
+    name: string;
+  };
+  toUser: {
+    id: string;
+    name: string;
+  };
+  item: {
+    id: string;
+    title: string;
+    list: {
+      id: string;
+      title: string;
+      event: {
+        id: string;
+        title: string;
+      };
+      user: {
+        name: string;
+      };
+    };
+  };
+}
+
+interface Event {
+  id: string;
+  title: string;
 }
 
 interface User {
@@ -47,19 +75,23 @@ interface User {
   email: string;
 }
 
+type TabType = "contributions" | "owed" | "received";
+
 export default function ContributionsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [debts, setDebts] = useState<Debt[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("contributions");
+  const [selectedEvent, setSelectedEvent] = useState<string>("all");
   const [editingContribution, setEditingContribution] = useState<Contribution | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contributionModalOpen, setContributionModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
-      // Get session
       const sessionResponse = await fetch("/api/auth/get-session");
       if (!sessionResponse.ok) {
         router.push("/auth/login");
@@ -69,18 +101,22 @@ export default function ContributionsPage() {
       const sessionData = await sessionResponse.json();
       setUser(sessionData.user);
 
-      // Fetch debts and contributions
-      const [debtsResult, contributionsResult] = await Promise.all([
-        getDebts(),
+      const [contributionsResult, debtsResult, eventsResult] = await Promise.all([
         getUserContributions(),
+        getMyDebts(),
+        getMyEvents(),
       ]);
-
-      if (debtsResult.success) {
-        setDebts(debtsResult.data.debts);
-      }
 
       if (contributionsResult.success) {
         setContributions(contributionsResult.data);
+      }
+
+      if (debtsResult.success) {
+        setDebts(debtsResult.data);
+      }
+
+      if (eventsResult.success) {
+        setEvents(eventsResult.data);
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -104,6 +140,7 @@ export default function ContributionsPage() {
     amount?: number;
     totalPrice?: number;
     note?: string;
+    hasAdvanced?: boolean;
   }) => {
     if (!editingContribution) return;
 
@@ -131,14 +168,12 @@ export default function ContributionsPage() {
   };
 
   const handleDeleteContribution = async (itemId: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette contribution ?")) return;
+    if (!confirm("Voulez-vous vraiment retirer cette contribution ?")) return;
 
-    setIsSubmitting(true);
     try {
       const result = await deleteContribution(itemId);
-
       if (result.success) {
-        toast.success("Contribution supprimée !");
+        toast.success("Contribution retirée");
         await fetchData();
       } else {
         toast.error(result.error);
@@ -146,10 +181,43 @@ export default function ContributionsPage() {
     } catch (error) {
       console.error("Error deleting contribution:", error);
       toast.error("Erreur lors de la suppression");
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  const handleSettleDebt = async (debtId: string) => {
+    if (!confirm("Marquer cette dette comme réglée ?")) return;
+
+    try {
+      const result = await settleDebt(debtId);
+      if (result.success) {
+        toast.success("Dette marquée comme réglée !");
+        await fetchData();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      console.error("Error settling debt:", error);
+      toast.error("Erreur lors du règlement");
+    }
+  };
+
+  // Filtrer les dettes selon l'onglet et l'événement
+  const filteredDebts = debts.filter((debt) => {
+    if (activeTab === "owed" && debt.fromUser.id !== user?.id) return false;
+    if (activeTab === "received" && debt.toUser.id !== user?.id) return false;
+    if (selectedEvent !== "all" && debt.item.list.event.id !== selectedEvent) return false;
+    return true;
+  });
+
+  // Filtrer les contributions selon l'événement
+  const filteredContributions = contributions.filter((contrib) => {
+    if (selectedEvent !== "all" && contrib.item.list.event.id !== selectedEvent) return false;
+    return true;
+  });
+
+  // Compter les dettes par catégorie
+  const debtsOwedCount = debts.filter((d) => d.fromUser.id === user?.id && !d.isSettled).length;
+  const debtsReceivedCount = debts.filter((d) => d.toUser.id === user?.id && !d.isSettled).length;
 
   if (loading) {
     return (
@@ -160,7 +228,7 @@ export default function ContributionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-noel-cream">
+    <div className="min-h-screen bg-noel-cream pb-20">
       <Header user={user || undefined} />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
@@ -175,143 +243,214 @@ export default function ContributionsPage() {
           💳 Mes Contributions
         </h1>
         <p className="text-noel-text mb-8">
-          Gérez vos contributions et consultez les partages de cadeaux
+          Gérez vos contributions et consultez les remboursements
         </p>
 
-        {/* Section: Mes contributions */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold text-noel-red mb-4">
-            Mes contributions
-          </h2>
+        {/* Onglets */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("contributions")}
+            className={`px-4 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === "contributions"
+                ? "bg-noel-green text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            📋 Mes contributions ({contributions.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("owed")}
+            className={`px-4 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === "owed"
+                ? "bg-noel-red text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            💸 Je dois ({debtsOwedCount})
+          </button>
+          <button
+            onClick={() => setActiveTab("received")}
+            className={`px-4 py-3 rounded-lg font-medium transition-colors whitespace-nowrap ${
+              activeTab === "received"
+                ? "bg-noel-gold text-white shadow-md"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            💰 On me doit ({debtsReceivedCount})
+          </button>
+        </div>
 
-          {contributions.length === 0 ? (
-            <div className="card text-center py-8">
-              <p className="text-noel-text">
-                Vous n'avez pas encore participé à un cadeau
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {contributions.map((contrib) => {
-                // Déterminer le type de contribution pour l'affichage
-                let contributionTypeLabel = "";
-                if (contrib.contributionType === "FULL") {
-                  contributionTypeLabel = "🎁 Pris en entier";
-                } else if (contrib.contributionType === "SHARED") {
-                  contributionTypeLabel = "🤝 Partage lancé";
-                } else {
-                  contributionTypeLabel = "✨ Participation";
-                }
+        {/* Filtre par événement */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Filtrer par événement
+          </label>
+          <select
+            value={selectedEvent}
+            onChange={(e) => setSelectedEvent(e.target.value)}
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-noel-green focus:border-transparent bg-white"
+          >
+            <option value="all">Tous les événements</option>
+            {events.map((event) => (
+              <option key={event.id} value={event.id}>
+                {event.title}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                return (
-                  <div key={contrib.id} className="card">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-noel-text mb-1">
-                          {contrib.item.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Liste: {contrib.item.list.title}
-                        </p>
-                        <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
-                          {contributionTypeLabel}
+        {/* Contenu selon l'onglet */}
+        {activeTab === "contributions" ? (
+          <div className="space-y-4">
+            {filteredContributions.length === 0 ? (
+              <div className="bg-white p-8 rounded-xl text-center">
+                <p className="text-gray-600">
+                  {selectedEvent === "all"
+                    ? "Vous n'avez pas encore participé à un cadeau"
+                    : "Aucune contribution pour cet événement"}
+                </p>
+              </div>
+            ) : (
+              filteredContributions.map((contrib) => (
+                <div key={contrib.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-noel-text mb-1">
+                        {contrib.item.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-1">
+                        Liste: {contrib.item.list.title}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Événement: {contrib.item.list.event.title}
+                      </p>
+                      {contrib.hasAdvanced && (
+                        <span className="inline-block mt-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
+                          💳 Vous avez avancé l'argent
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => startEditContribution(contrib)}
+                        className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        disabled={isSubmitting}
+                      >
+                        ✏️ Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDeleteContribution(contrib.itemId)}
+                        className="text-red-600 hover:text-red-800 text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                        disabled={isSubmitting}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex gap-4 text-sm text-noel-text">
+                      <div>
+                        <span className="font-medium">Ma participation:</span>{" "}
+                        <span className="text-noel-green font-bold text-lg">
+                          {contrib.amount.toFixed(0)}€
                         </span>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEditContribution(contrib)}
-                          className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                          disabled={isSubmitting}
-                        >
-                          ✏️ Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDeleteContribution(contrib.itemId)}
-                          className="text-red-600 hover:text-red-800 text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                          disabled={isSubmitting}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                      <div className="flex gap-4 text-sm text-noel-text">
+                      {contrib.totalPrice && (
                         <div>
-                          <span className="font-medium">Ma participation:</span>{" "}
-                          <span className="text-noel-green font-bold text-lg">
-                            {contrib.amount.toFixed(2)}€
+                          <span className="font-medium">Prix total:</span>{" "}
+                          <span className="font-bold">
+                            {contrib.totalPrice.toFixed(0)}€
                           </span>
                         </div>
-                        {contrib.totalPrice && (
-                          <div>
-                            <span className="font-medium">Prix total:</span>{" "}
-                            <span className="font-bold">
-                              {contrib.totalPrice.toFixed(2)}€
-                            </span>
-                          </div>
-                        )}
+                      )}
+                    </div>
+                    {contrib.note && (
+                      <p className="text-sm text-gray-600 italic mt-2 pt-2 border-t border-gray-200">
+                        💬 {contrib.note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredDebts.length === 0 ? (
+              <div className="bg-white p-8 rounded-xl text-center">
+                <p className="text-gray-600">
+                  {activeTab === "owed"
+                    ? "Vous n'avez aucune dette en cours"
+                    : "Personne ne vous doit d'argent actuellement"}
+                </p>
+              </div>
+            ) : (
+              filteredDebts.map((debt) => (
+                <div
+                  key={debt.id}
+                  className={`bg-white p-5 rounded-xl shadow-sm border-l-4 ${
+                    debt.isSettled
+                      ? "border-green-500 opacity-60"
+                      : activeTab === "owed"
+                      ? "border-red-500"
+                      : "border-noel-gold"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg font-bold text-noel-text">
+                          {debt.fromUser.name}
+                        </span>
+                        <span className="text-gray-500">→</span>
+                        <span className="text-lg font-bold text-noel-text">
+                          {debt.toUser.name}
+                        </span>
+                        <span className="text-2xl font-bold text-noel-red ml-auto">
+                          {debt.amount.toFixed(0)}€
+                        </span>
                       </div>
-
-                      {contrib.note && (
-                        <p className="text-sm text-gray-600 italic pt-2 border-t border-gray-200">
-                          💬 {contrib.note}
+                      <p className="text-sm text-gray-600 mb-1">
+                        Pour: {debt.item.title}
+                      </p>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Liste de: {debt.item.list.user.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Événement: {debt.item.list.event.title}
+                      </p>
+                      {debt.isSettled && debt.settledAt && (
+                        <p className="text-xs text-green-600 mt-2 font-medium">
+                          ✓ Réglé le {new Date(debt.settledAt).toLocaleDateString("fr-FR")}
                         </p>
                       )}
                     </div>
+                    {!debt.isSettled && (
+                      <button
+                        onClick={() => handleSettleDebt(debt.id)}
+                        className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm whitespace-nowrap"
+                      >
+                        ✅ Marquer comme réglé
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Section: Partage des cadeaux */}
-        <div>
-          <h2 className="text-2xl font-bold text-noel-red mb-4">
-            Partage des cadeaux
-          </h2>
-
-          {debts.length === 0 ? (
-            <div className="card text-center py-8">
-              <p className="text-noel-text">
-                Aucun partage de cadeau pour le moment
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {debts.map((debt, idx) => (
-                <div key={idx} className="card border-l-4 border-noel-red">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-lg font-bold text-noel-text">
-                      {debt.fromUser} doit à {debt.toUser}
-                    </span>
-                    <span className="text-2xl font-bold text-noel-red">
-                      {debt.amount.toFixed(2)}€
-                    </span>
-                  </div>
-
-                  {debt.items.length > 0 && (
-                    <div className="text-sm text-noel-text">
-                      <p className="font-medium mb-1">Cadeaux concernés :</p>
-                      <ul className="list-disc list-inside text-gray-600">
-                        {debt.items.map((item, i) => (
-                          <li key={i}>{item.itemTitle}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
 
-        <div className="mt-12 card bg-noel-green/5 border border-noel-green">
+        <div className="mt-12 bg-white p-6 rounded-xl border border-noel-green/20">
           <h3 className="font-bold text-noel-green mb-2">ℹ️ Comment ça fonctionne</h3>
+          <p className="text-noel-text text-sm mb-2">
+            <strong>Mes contributions :</strong> Tous les cadeaux auxquels vous avez participé.
+          </p>
+          <p className="text-noel-text text-sm mb-2">
+            <strong>Je dois :</strong> Les montants que vous devez rembourser aux personnes qui ont avancé l'argent.
+          </p>
           <p className="text-noel-text text-sm">
-            Quand plusieurs personnes participent au même cadeau, l'application calcule qui doit
-            combien à qui. Les débts sont simplifiés pour éviter les remboursements circulaires.
+            <strong>On me doit :</strong> Les montants que les autres participants vous doivent si vous avez avancé l'argent.
           </p>
         </div>
       </main>
@@ -330,6 +469,7 @@ export default function ContributionsPage() {
             totalPrice: editingContribution.totalPrice,
             contributionType: editingContribution.contributionType,
             note: editingContribution.note || undefined,
+            hasAdvanced: editingContribution.hasAdvanced,
           }}
           onSubmit={handleEditContribution}
           isSubmitting={isSubmitting}

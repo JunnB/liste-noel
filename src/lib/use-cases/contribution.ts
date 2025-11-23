@@ -1,6 +1,7 @@
 import * as contributionRepository from "@/lib/repositories/contribution";
 import * as itemRepository from "@/lib/repositories/item";
 import { calculateDebts } from "@/lib/debts";
+import { calculateAndCreateDebts } from "@/lib/use-cases/debt";
 
 export type ContributionType = "FULL" | "PARTIAL";
 
@@ -11,6 +12,7 @@ export type CreateInput = {
   totalPrice?: number;
   contributionType: ContributionType;
   note?: string;
+  hasAdvanced?: boolean;
 };
 
 export async function upsert(input: CreateInput) {
@@ -84,14 +86,22 @@ export async function upsert(input: CreateInput) {
     }
   }
 
-  return contributionRepository.upsert({
+  const contribution = await contributionRepository.upsert({
     itemId: input.itemId,
     userId: input.userId,
     amount: finalAmount,
     totalPrice: finalTotalPrice,
     contributionType: input.contributionType,
     note: input.note?.trim() || null,
+    hasAdvanced: input.hasAdvanced || false,
   });
+
+  // Si l'utilisateur a avancé l'argent, calculer et créer les dettes
+  if (input.hasAdvanced && input.contributionType === "PARTIAL") {
+    await calculateAndCreateDebts(input.itemId);
+  }
+
+  return contribution;
 }
 
 export async function deleteByItemId(itemId: string, userId: string) {

@@ -18,6 +18,7 @@ export async function upsertContribution(data: {
   totalPrice?: number;
   contributionType: "FULL" | "PARTIAL";
   note?: string;
+  hasAdvanced?: boolean;
 }): Promise<ActionResult<void>> {
   try {
     const session = await requireAuth();
@@ -29,6 +30,7 @@ export async function upsertContribution(data: {
       totalPrice: data.totalPrice,
       contributionType: data.contributionType,
       note: data.note,
+      hasAdvanced: data.hasAdvanced,
     });
 
     // Récupérer l'item pour revalider la bonne page
