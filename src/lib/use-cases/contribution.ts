@@ -96,9 +96,14 @@ export async function upsert(input: CreateInput) {
     hasAdvanced: input.hasAdvanced || false,
   });
 
-  // Si l'utilisateur a avancé l'argent, calculer et créer les dettes
-  if (input.hasAdvanced && input.contributionType === "PARTIAL") {
-    await calculateAndCreateDebts(input.itemId);
+  // Recalculer les dettes si :
+  // 1. L'utilisateur actuel a avancé l'argent, OU
+  // 2. Quelqu'un d'autre a déjà avancé l'argent (pour créer la dette du nouvel arrivant)
+  if (input.contributionType === "PARTIAL") {
+    const hasAdvancer = existingContributions.some(c => c.hasAdvanced) || input.hasAdvanced;
+    if (hasAdvancer) {
+      await calculateAndCreateDebts(input.itemId);
+    }
   }
 
   return contribution;

@@ -20,7 +20,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "recalculate-debts": "tsx scripts/recalculate-debts.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

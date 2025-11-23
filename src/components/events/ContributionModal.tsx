@@ -43,6 +43,8 @@ export default function ContributionModal({
   const isFirstContribution = !existingTotalPrice && !existingContribution;
   
   const [contributionType, setContributionType] = useState<ContributionType>(
+    // Si on rejoint un partage existant, c'est forcément PARTIAL
+    isJoiningExisting ? "PARTIAL" :
     existingContribution?.contributionType === "PARTIAL" ? "PARTIAL" : "FULL"
   );
   const [totalPrice, setTotalPrice] = useState(
