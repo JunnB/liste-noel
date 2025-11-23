@@ -27,7 +27,7 @@ export {
 } from "./lists";
 
 // Actions pour les articles
-export { updateItem, deleteItem } from "./items";
+export { updateItem, deleteItem, createBonusItem } from "./items";
 
 // Actions pour les contributions
 export { upsertContribution, deleteContribution, getDebts, getUserContributions } from "./contributions";

@@ -6,6 +6,9 @@ import AppShell from "@/components/layout/AppShell";
 export const metadata: Metadata = {
   title: "Liste de Noël Familiale",
   description: "Gérez vos listes de cadeaux de Noël en famille",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

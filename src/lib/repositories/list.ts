@@ -111,7 +111,7 @@ export async function findByEventIdAndUserId(
   eventId: string,
   userId: string
 ): Promise<ListWithItems | null> {
-  return prisma.list.findUnique({
+  const list = await prisma.list.findUnique({
     where: {
       eventId_userId: {
         eventId,
@@ -122,6 +122,17 @@ export async function findByEventIdAndUserId(
       items: true,
     },
   });
+
+  // Si la liste existe et que c'est le propriétaire qui la consulte,
+  // filtrer les items bonus (surprise!)
+  if (list && list.userId === userId) {
+    return {
+      ...list,
+      items: list.items.filter((item) => !item.isBonus),
+    };
+  }
+
+  return list;
 }
 
 export async function deleteById(id: string): Promise<List> {

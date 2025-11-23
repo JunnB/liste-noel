@@ -66,4 +66,40 @@ export async function deleteItem(itemId: string): Promise<ActionResult<void>> {
   }
 }
 
+/**
+ * Créer un cadeau bonus pour la liste d'un autre participant
+ */
+export async function createBonusItem(data: {
+  listId: string;
+  title: string;
+  description?: string;
+  amazonUrl?: string;
+}): Promise<ActionResult<void>> {
+  try {
+    const session = await requireAuth();
+
+    await itemUseCases.createBonus({
+      listId: data.listId,
+      userId: session.user.id,
+      title: data.title,
+      description: data.description,
+      amazonUrl: data.amazonUrl,
+    });
+
+    // Revalider la page de l'événement pour mettre à jour les listes
+    revalidatePath(`/events`);
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("Error creating bonus item:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Erreur lors de la création du cadeau bonus",
+    };
+  }
+}
+
 

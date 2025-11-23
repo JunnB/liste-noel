@@ -29,6 +29,7 @@ model User {
   eventParticipants  EventParticipant[]
   debtsOwed          Debt[]             @relation("DebtsOwed")
   debtsReceived      Debt[]             @relation("DebtsReceived")
+  bonusItemsAdded    Item[]             @relation("BonusItemsAdded")
 }
 
 model Event {
@@ -84,20 +85,24 @@ model List {
 }
 
 model Item {
-  id          String   @id @default(cuid())
-  listId      String
-  title       String
-  description String?
-  amazonUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  listId        String
+  title         String
+  description   String?
+  amazonUrl     String?
+  isBonus       Boolean  @default(false)
+  addedByUserId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   list          List           @relation(fields: [listId], references: [id], onDelete: Cascade)
   contributions Contribution[]
   debts         Debt[]
+  addedBy       User?          @relation("BonusItemsAdded", fields: [addedByUserId], references: [id], onDelete: SetNull)
 
   @@index([listId])
+  @@index([addedByUserId])
 }
 
 model Contribution {

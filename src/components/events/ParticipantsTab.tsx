@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { upsertContribution, deleteContribution } from "@/actions/contributions";
+import { upsertContribution, deleteContribution, createBonusItem } from "@/actions";
 import toast from "@/lib/utils/toaster";
 import { formatAmountValue } from "@/lib/utils/format";
 import ContributionModal from "@/components/events/ContributionModal";
 import ContributionStatusBadge from "@/components/events/ContributionStatusBadge";
+import Modal from "@/components/ui/Modal";
 
 // Types adaptées pour l'affichage
 interface User {
@@ -29,6 +30,8 @@ interface Item {
   title: string;
   description?: string;
   amazonUrl?: string;
+  isBonus?: boolean;
+  addedByUserId?: string | null;
   contributions: Contribution[];
 }
 
@@ -58,6 +61,14 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingContribution, setEditingContribution] = useState<Contribution | null>(null);
+
+  // Bonus Item State
+  const [bonusModalOpen, setBonusModalOpen] = useState(false);
+  const [bonusFormData, setBonusFormData] = useState({
+    title: "",
+    description: "",
+    amazonUrl: "",
+  });
 
   const selectedList = lists.find(l => l.id === selectedListId);
   
@@ -117,6 +128,40 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
     } catch (e) {
       console.error(e);
       toast.error("Erreur");
+    }
+  };
+
+  const handleOpenBonusModal = () => {
+    setBonusFormData({ title: "", description: "", amazonUrl: "" });
+    setBonusModalOpen(true);
+  };
+
+  const handleSubmitBonus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bonusFormData.title.trim() || !selectedListId) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await createBonusItem({
+        listId: selectedListId,
+        title: bonusFormData.title,
+        description: bonusFormData.description || undefined,
+        amazonUrl: bonusFormData.amazonUrl || undefined,
+      });
+
+      if (result.success) {
+        toast.success("Cadeau bonus ajouté ! 🎁");
+        setBonusModalOpen(false);
+        setBonusFormData({ title: "", description: "", amazonUrl: "" });
+        onRefresh();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Une erreur est survenue");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -294,6 +339,15 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
         </div>
       </div>
 
+      {/* Bouton Ajouter Cadeau Bonus */}
+      <button
+        onClick={handleOpenBonusModal}
+        className="w-full py-3 border-2 border-dashed border-purple-300 rounded-xl flex items-center justify-center gap-2 text-purple-600 font-medium hover:bg-purple-50 transition-colors"
+      >
+        <span className="text-xl">🎁</span>
+        <span>Ajouter un cadeau bonus surprise</span>
+      </button>
+
       {/* Items List */}
       <div className="space-y-4">
         {sortedItems.length === 0 ? (
@@ -314,7 +368,14 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
             return (
               <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                 <div className="flex justify-between items-start mb-3">
-                  <h4 className="font-bold text-gray-900 text-lg">{item.title}</h4>
+                  <div className="flex items-center gap-2 flex-1">
+                    <h4 className="font-bold text-gray-900 text-lg">{item.title}</h4>
+                    {item.isBonus && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 text-xs font-bold rounded-full border border-purple-200">
+                        🎁 Bonus
+                      </span>
+                    )}
+                  </div>
                   {item.amazonUrl && (
                     <a href={item.amazonUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-sm hover:underline">
                       Lien
@@ -417,6 +478,71 @@ export default function ParticipantsTab({ participants, lists, currentUser, onRe
           isSubmitting={isSubmitting}
         />
       )}
+
+      {/* Modal Cadeau Bonus */}
+      <Modal
+        isOpen={bonusModalOpen}
+        onClose={() => setBonusModalOpen(false)}
+        title="🎁 Ajouter un cadeau bonus surprise"
+      >
+        <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <p className="text-sm text-purple-800">
+            <strong>💡 Astuce :</strong> Ce cadeau sera visible par tous les participants 
+            <strong> sauf {selectedList.user.name}</strong>. C'est une surprise ! 🤫
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmitBonus} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nom du cadeau *
+            </label>
+            <input
+              type="text"
+              value={bonusFormData.title}
+              onChange={(e) => setBonusFormData({ ...bonusFormData, title: e.target.value })}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              placeholder="Ex: Un livre surprise"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description (taille, couleur...)
+            </label>
+            <textarea
+              value={bonusFormData.description}
+              onChange={(e) => setBonusFormData({ ...bonusFormData, description: e.target.value })}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none min-h-[100px]"
+              placeholder="Détails supplémentaires pour coordonner avec les autres"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lien (Amazon, Fnac...)
+            </label>
+            <input
+              type="url"
+              value={bonusFormData.amazonUrl}
+              onChange={(e) => setBonusFormData({ ...bonusFormData, amazonUrl: e.target.value })}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-lg font-bold hover:from-purple-700 hover:to-pink-700 transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? "Ajout en cours..." : "Ajouter la surprise 🎁"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

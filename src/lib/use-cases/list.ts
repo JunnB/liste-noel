@@ -33,7 +33,7 @@ export async function getByUserId(userId: string) {
   return listRepository.findManyByUserId(userId);
 }
 
-export async function getById(id: string, userId: string) {
+export async function getById(id: string, userId: string, viewerUserId?: string) {
   const list = await listRepository.findByIdWithItems(id);
 
   if (!list) {
@@ -43,6 +43,15 @@ export async function getById(id: string, userId: string) {
   // Vérifier que l'utilisateur a accès à cette liste
   if (list.userId !== userId) {
     throw new Error("Vous n'avez pas accès à cette liste");
+  }
+
+  // Si le viewer est le propriétaire, filtrer les items bonus
+  const actualViewerId = viewerUserId || userId;
+  if (actualViewerId === list.userId) {
+    return {
+      ...list,
+      items: list.items.filter((item) => !item.isBonus),
+    };
   }
 
   return list;
