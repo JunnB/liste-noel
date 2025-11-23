@@ -56,7 +56,6 @@ export type EventWithLists = Event & {
       title: string;
       description: string | null;
       amazonUrl: string | null;
-      desiredAmount: number | null;
       createdAt: Date;
       updatedAt: Date;
       contributions: {
@@ -64,6 +63,7 @@ export type EventWithLists = Event & {
         itemId: string;
         userId: string;
         amount: number;
+        totalPrice: number | null;
         note: string | null;
         createdAt: Date;
         updatedAt: Date;

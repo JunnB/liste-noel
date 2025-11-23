@@ -2,19 +2,18 @@ import * as contributionRepository from "@/lib/repositories/contribution";
 import * as itemRepository from "@/lib/repositories/item";
 import { calculateDebts } from "@/lib/debts";
 
+export type ContributionType = "FULL" | "PARTIAL";
+
 export type CreateInput = {
   itemId: string;
   userId: string;
-  amount: number;
+  amount?: number;
   totalPrice?: number;
+  contributionType: ContributionType;
   note?: string;
 };
 
 export async function upsert(input: CreateInput) {
-  if (input.amount === undefined || input.amount < 0) {
-    throw new Error("Le montant doit être positif");
-  }
-
   const item = await itemRepository.findById(input.itemId);
 
   if (!item) {
@@ -24,44 +23,73 @@ export async function upsert(input: CreateInput) {
   // Récupérer toutes les contributions existantes pour cet item
   const existingContributions = await contributionRepository.findByItemId(input.itemId);
   
-  // Vérifier si c'est la première contribution
-  const isFirstContribution = existingContributions.length === 0;
-  
   // Vérifier si l'utilisateur a déjà contribué
   const userContribution = existingContributions.find(c => c.userId === input.userId);
-  const isUpdate = !!userContribution;
 
-  // Si c'est la première contribution, le prix total est requis
-  if (isFirstContribution && !input.totalPrice) {
-    throw new Error("Le prix total du produit est requis pour la première contribution");
-  }
+  let finalAmount: number;
+  let finalTotalPrice: number | null;
 
-  // Récupérer le prix total actuel (soit depuis une contribution existante, soit depuis l'input)
-  let currentTotalPrice = input.totalPrice;
-  if (!isFirstContribution && !input.totalPrice) {
-    // Chercher le prix total dans les contributions existantes
-    const contributionWithPrice = existingContributions.find(c => c.totalPrice !== null);
-    if (contributionWithPrice) {
-      currentTotalPrice = contributionWithPrice.totalPrice;
+  // Logique selon le type de contribution
+  if (input.contributionType === "FULL") {
+    // Je prends en entier
+    if (!input.totalPrice) {
+      throw new Error("Le prix total est requis pour prendre en entier");
+    }
+    
+    // Vérifier qu'aucune autre contribution n'existe (sauf la sienne si modification)
+    const otherContributions = existingContributions.filter(c => c.userId !== input.userId);
+    if (otherContributions.length > 0) {
+      throw new Error("Ce cadeau a déjà des contributions, vous ne pouvez pas le prendre en entier");
+    }
+    
+    finalAmount = input.totalPrice;
+    finalTotalPrice = input.totalPrice;
+  } else {
+    // PARTIAL - Je participe
+    // Récupérer le prix total existant
+    const existingTotal = existingContributions.find(c => c.totalPrice)?.totalPrice;
+    
+    if (!existingTotal && !input.totalPrice) {
+      throw new Error("Le prix total du produit est requis");
+    }
+
+    finalTotalPrice = input.totalPrice || existingTotal || null;
+
+    // Si pas de montant spécifié, on calcule le reste à payer
+    if (input.amount === undefined || input.amount === 0) {
+      const otherContributions = existingContributions.filter(c => c.userId !== input.userId);
+      const totalContributed = otherContributions.reduce((sum, c) => sum + c.amount, 0);
+      const remaining = (finalTotalPrice || 0) - totalContributed;
+      
+      if (remaining <= 0) {
+        throw new Error("Ce cadeau est déjà entièrement financé");
+      }
+      
+      finalAmount = remaining;
+    } else {
+      if (input.amount < 0) {
+        throw new Error("Le montant doit être positif");
+      }
+      finalAmount = input.amount;
     }
   }
 
   // Valider que le montant ne dépasse pas le prix total
-  if (currentTotalPrice) {
-    // Calculer la somme des contributions (en excluant la contribution actuelle de l'utilisateur si c'est une mise à jour)
+  if (finalTotalPrice) {
     const otherContributions = existingContributions.filter(c => c.userId !== input.userId);
     const totalContributed = otherContributions.reduce((sum, c) => sum + c.amount, 0);
     
-    if (totalContributed + input.amount > currentTotalPrice) {
-      throw new Error(`Le montant total des contributions ne peut pas dépasser ${currentTotalPrice.toFixed(2)}€`);
+    if (totalContributed + finalAmount > finalTotalPrice) {
+      throw new Error(`Le montant total des contributions ne peut pas dépasser ${finalTotalPrice.toFixed(2)}€`);
     }
   }
 
   return contributionRepository.upsert({
     itemId: input.itemId,
     userId: input.userId,
-    amount: input.amount,
-    totalPrice: input.totalPrice || null,
+    amount: finalAmount,
+    totalPrice: finalTotalPrice,
+    contributionType: input.contributionType,
     note: input.note?.trim() || null,
   });
 }

@@ -98,14 +98,15 @@ model Item {
 }
 
 model Contribution {
-  id         String   @id @default(cuid())
-  itemId     String
-  userId     String
-  amount     Float    @default(0)
-  totalPrice Float?
-  note       String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id               String   @id @default(cuid())
+  itemId           String
+  userId           String
+  amount           Float    @default(0)
+  totalPrice       Float?
+  contributionType String   @default("PARTIAL") // FULL, SHARED, PARTIAL
+  note             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relations
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)

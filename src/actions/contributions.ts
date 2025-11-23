@@ -14,8 +14,9 @@ export type ActionResult<T> =
  */
 export async function upsertContribution(data: {
   itemId: string;
-  amount: number;
+  amount?: number;
   totalPrice?: number;
+  contributionType: "FULL" | "PARTIAL";
   note?: string;
 }): Promise<ActionResult<void>> {
   try {
@@ -26,6 +27,7 @@ export async function upsertContribution(data: {
       userId: session.user.id,
       amount: data.amount,
       totalPrice: data.totalPrice,
+      contributionType: data.contributionType,
       note: data.note,
     });
 

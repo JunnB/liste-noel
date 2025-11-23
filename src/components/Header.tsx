@@ -24,7 +24,7 @@ export default function Header({ user }: HeaderProps) {
         <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-2">
           <span className="text-2xl">🎄</span>
           <h1 className="text-xl font-bold text-noel-red hidden sm:block">
-            Liste Noël
+            Liste de cadeaux
           </h1>
         </Link>
 

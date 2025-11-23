@@ -31,6 +31,7 @@ export async function upsert(data: {
   userId: string;
   amount: number;
   totalPrice?: number | null;
+  contributionType: string;
   note?: string | null;
 }): Promise<ContributionWithUser> {
   return prisma.contribution.upsert({
@@ -43,6 +44,7 @@ export async function upsert(data: {
     update: {
       amount: data.amount,
       totalPrice: data.totalPrice !== undefined ? data.totalPrice : undefined,
+      contributionType: data.contributionType,
       note: data.note || null,
     },
     create: {
@@ -50,6 +52,7 @@ export async function upsert(data: {
       userId: data.userId,
       amount: data.amount,
       totalPrice: data.totalPrice || null,
+      contributionType: data.contributionType,
       note: data.note || null,
     },
     include: {

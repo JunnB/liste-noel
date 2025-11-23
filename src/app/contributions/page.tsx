@@ -6,6 +6,8 @@ import Header from "@/components/Header";
 import Link from "next/link";
 import { getDebts, getUserContributions, upsertContribution, deleteContribution } from "@/actions";
 import toast from "@/lib/utils/toaster";
+import ContributionModal from "@/components/events/ContributionModal";
+import ContributionStatusBadge from "@/components/events/ContributionStatusBadge";
 
 interface DebtItem {
   itemId: string;
@@ -26,6 +28,7 @@ interface Contribution {
   itemId: string;
   amount: number;
   totalPrice: number | null;
+  contributionType: string;
   note: string | null;
   item: {
     id: string;
@@ -50,11 +53,9 @@ export default function ContributionsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingContribution, setEditingContribution] = useState<string | null>(null);
-  const [editAmount, setEditAmount] = useState("");
-  const [editTotalPrice, setEditTotalPrice] = useState("");
-  const [editNote, setEditNote] = useState("");
+  const [editingContribution, setEditingContribution] = useState<Contribution | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contributionModalOpen, setContributionModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -94,30 +95,29 @@ export default function ContributionsPage() {
   }, [router]);
 
   const startEditContribution = (contrib: Contribution) => {
-    setEditingContribution(contrib.itemId);
-    setEditAmount(contrib.amount.toString());
-    setEditTotalPrice(contrib.totalPrice?.toString() || "");
-    setEditNote(contrib.note || "");
+    setEditingContribution(contrib);
+    setContributionModalOpen(true);
   };
 
-  const handleEditContribution = async (itemId: string) => {
-    if (!editAmount) {
-      toast.error("Veuillez entrer un montant");
-      return;
-    }
+  const handleEditContribution = async (data: {
+    contributionType: "FULL" | "PARTIAL";
+    amount?: number;
+    totalPrice?: number;
+    note?: string;
+  }) => {
+    if (!editingContribution) return;
 
     setIsSubmitting(true);
     try {
       const result = await upsertContribution({
-        itemId,
-        amount: parseFloat(editAmount),
-        totalPrice: editTotalPrice ? parseFloat(editTotalPrice) : undefined,
-        note: editNote || undefined,
+        itemId: editingContribution.itemId,
+        ...data,
       });
 
       if (result.success) {
         toast.success("Contribution modifiée !");
         setEditingContribution(null);
+        setContributionModalOpen(false);
         await fetchData();
       } else {
         toast.error(result.error);
@@ -192,130 +192,76 @@ export default function ContributionsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {contributions.map((contrib) => (
-                <div key={contrib.id} className="card">
-                  {editingContribution === contrib.itemId ? (
-                    // Mode édition
-                    <div className="space-y-3">
-                      <h3 className="text-lg font-bold text-noel-text mb-2">
-                        {contrib.item.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Liste: {contrib.item.list.title}
-                      </p>
+              {contributions.map((contrib) => {
+                // Déterminer le type de contribution pour l'affichage
+                let contributionTypeLabel = "";
+                if (contrib.contributionType === "FULL") {
+                  contributionTypeLabel = "🎁 Pris en entier";
+                } else if (contrib.contributionType === "SHARED") {
+                  contributionTypeLabel = "🤝 Partage lancé";
+                } else {
+                  contributionTypeLabel = "✨ Participation";
+                }
 
-                      <div>
-                        <label className="block text-sm font-medium text-noel-text mb-1">
-                          Prix total du produit (€)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editTotalPrice}
-                          onChange={(e) => setEditTotalPrice(e.target.value)}
-                          className="input-field"
-                          disabled={isSubmitting}
-                        />
+                return (
+                  <div key={contrib.id} className="card">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-noel-text mb-1">
+                          {contrib.item.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Liste: {contrib.item.list.title}
+                        </p>
+                        <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200">
+                          {contributionTypeLabel}
+                        </span>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-noel-text mb-1">
-                          Ma participation (€) *
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editAmount}
-                          onChange={(e) => setEditAmount(e.target.value)}
-                          className="input-field"
-                          disabled={isSubmitting}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-noel-text mb-1">
-                          Note (optionnelle)
-                        </label>
-                        <input
-                          type="text"
-                          value={editNote}
-                          onChange={(e) => setEditNote(e.target.value)}
-                          className="input-field"
-                          disabled={isSubmitting}
-                        />
-                      </div>
-
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleEditContribution(contrib.itemId)}
-                          className="btn-primary flex-1"
+                          onClick={() => startEditContribution(contrib)}
+                          className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1.5 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                           disabled={isSubmitting}
                         >
-                          {isSubmitting ? "Modification..." : "Enregistrer"}
+                          ✏️ Modifier
                         </button>
                         <button
-                          onClick={() => setEditingContribution(null)}
-                          className="btn-outline flex-1"
+                          onClick={() => handleDeleteContribution(contrib.itemId)}
+                          className="text-red-600 hover:text-red-800 text-sm px-3 py-1.5 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
                           disabled={isSubmitting}
                         >
-                          Annuler
+                          🗑️
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    // Mode affichage
-                    <>
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="text-lg font-bold text-noel-text">
-                            {contrib.item.title}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            Liste: {contrib.item.list.title}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => startEditContribution(contrib)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            disabled={isSubmitting}
-                          >
-                            ✏️ Modifier
-                          </button>
-                          <button
-                            onClick={() => handleDeleteContribution(contrib.itemId)}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                            disabled={isSubmitting}
-                          >
-                            🗑️ Supprimer
-                          </button>
-                        </div>
-                      </div>
 
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-2">
                       <div className="flex gap-4 text-sm text-noel-text">
                         <div>
                           <span className="font-medium">Ma participation:</span>{" "}
-                          <span className="text-noel-green font-bold">
+                          <span className="text-noel-green font-bold text-lg">
                             {contrib.amount.toFixed(2)}€
                           </span>
                         </div>
                         {contrib.totalPrice && (
                           <div>
                             <span className="font-medium">Prix total:</span>{" "}
-                            {contrib.totalPrice.toFixed(2)}€
+                            <span className="font-bold">
+                              {contrib.totalPrice.toFixed(2)}€
+                            </span>
                           </div>
                         )}
                       </div>
 
                       {contrib.note && (
-                        <p className="text-sm text-gray-600 italic mt-2">
-                          Note: {contrib.note}
+                        <p className="text-sm text-gray-600 italic pt-2 border-t border-gray-200">
+                          💬 {contrib.note}
                         </p>
                       )}
-                    </>
-                  )}
-                </div>
-              ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -369,6 +315,26 @@ export default function ContributionsPage() {
           </p>
         </div>
       </main>
+
+      {/* Modal d'édition */}
+      {editingContribution && (
+        <ContributionModal
+          isOpen={contributionModalOpen}
+          onClose={() => {
+            setContributionModalOpen(false);
+            setEditingContribution(null);
+          }}
+          itemTitle={editingContribution.item.title}
+          existingContribution={{
+            amount: editingContribution.amount,
+            totalPrice: editingContribution.totalPrice,
+            contributionType: editingContribution.contributionType,
+            note: editingContribution.note || undefined,
+          }}
+          onSubmit={handleEditContribution}
+          isSubmitting={isSubmitting}
+        />
+      )}
     </div>
   );
 }

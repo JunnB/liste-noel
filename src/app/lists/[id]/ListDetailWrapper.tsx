@@ -8,7 +8,6 @@ interface Item {
   title: string;
   description: string | null;
   amazonUrl: string | null;
-  desiredAmount: number | null;
 }
 
 interface ListData {
