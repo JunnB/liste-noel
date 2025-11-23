@@ -19,7 +19,7 @@ npm run db:seed
 - **8 utilisateurs** avec le mot de passe `azerty123`
 - **1 événement** "Noël 2025" avec le code d'invitation `NOEL2025`
 - **8 listes** (une par participant)
-- **17 cadeaux** répartis entre Anne (5), Iris (5), Luce (6) et Gilles (1)
+- **28 cadeaux** répartis entre Anne (5), Iris (5), Luce (6), Gilles (1), Soren (5), Syham (1) et Andrée (5)
 
 ## 🔐 Connexion
 

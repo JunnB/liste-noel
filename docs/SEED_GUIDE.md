@@ -53,6 +53,23 @@ Tous les utilisateurs ont le même mot de passe : **azerty123**
 #### Gilles (1 cadeau)
 1. **Biofourche 4 dents Devaux JAD Jardin** - Grelinette disponible à Castorama Quimper
 
+#### Soren (5 cadeaux)
+1. **Jouet Amazon 1** - De la liste du Père Noël
+2. **DICKIE TOYS Grue Mega Crane** - 120 cm, Radio Commande, pivotante à 350 degrés
+3. **Jouet cuisine Ecoiffier** - Jeu d'imitation cuisine (Origine France Garantie)
+4. **Jouet Amazon 4** - De la liste du Père Noël
+5. **Jouet Amazon 5** - De la liste du Père Noël
+
+#### Syham (1 cadeau)
+1. **Capuche doudoune léopard Fudoon** - Capuche pour doudoune motif léopard
+
+#### Andrée (5 cadeaux)
+1. **Gilet sans manche sherpa noir** - Taille 40 ou M (Promod, Bonobo, Kiabi)
+2. **Carte cadeau pour des plantes** - Chez Ladan (voir avec Gilles)
+3. **Nappe imprimée en coton rectangulaire** - 250cm x 150cm
+4. **Gouttes illuminatrices** - Acide hyaluronique et vitamine C (Aromazone)
+5. **Lotion tonique Niacinamide** - Aromazone
+
 ## 🚀 Installation
 
 ### 1. Installer les dépendances
@@ -112,6 +129,12 @@ Après l'exécution du script, vous devriez voir :
 ✅ 6 cadeaux ajoutés pour Luce
 🎁 Ajout des cadeaux pour Gilles...
 ✅ 1 cadeau(x) ajouté(s) pour Gilles
+🎁 Ajout des cadeaux pour Soren...
+✅ 5 cadeaux ajoutés pour Soren
+🎁 Ajout des cadeaux pour Syham...
+✅ 1 cadeau(x) ajouté(s) pour Syham
+🎁 Ajout des cadeaux pour Andrée...
+✅ 5 cadeaux ajoutés pour Andrée
 
 🎉 Seeding terminé avec succès !
 ```
@@ -139,11 +162,11 @@ npx prisma migrate reset
 - Les emails utilisés sont des emails locaux (*.local) pour éviter les conflits avec de vrais emails
 - Tous les utilisateurs sont automatiquement vérifiés (emailVerified: true)
 - Tous les participants sont automatiquement ajoutés à l'événement Noël 2025
-- Une liste vide est créée pour chaque participant (sauf Anne, Iris, Luce et Gilles qui ont déjà des cadeaux)
+- Une liste est créée pour chaque participant avec leurs cadeaux (seul Junior n'a pas encore de cadeaux dans sa liste)
 
 ## 🛠️ Personnalisation
 
-Pour ajouter des cadeaux pour d'autres participants, modifiez le fichier `prisma/seed.ts` en suivant le modèle utilisé pour Anne, Iris, Luce et Gilles.
+Pour ajouter des cadeaux pour Junior ou modifier les listes existantes, modifiez le fichier `prisma/seed.ts` en suivant le modèle utilisé pour les autres participants.
 
 ## 💡 Notes importantes
 
