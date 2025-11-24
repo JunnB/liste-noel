@@ -277,6 +277,7 @@ export async function getParticipants(eventId: string) {
 
 /**
  * Récupérer un événement avec toutes ses listes (sauf celle de l'utilisateur courant)
+ * Optimisé avec select pour réduire les données transférées
  */
 export async function findByIdWithListsExcludingUser(
   eventId: string,
@@ -284,7 +285,14 @@ export async function findByIdWithListsExcludingUser(
 ): Promise<EventWithLists | null> {
   return prisma.event.findUnique({
     where: { id: eventId },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      invitationCode: true,
+      createdAt: true,
+      updatedAt: true,
+      creatorId: true,
       creator: {
         select: {
           id: true,
@@ -293,7 +301,8 @@ export async function findByIdWithListsExcludingUser(
         },
       },
       participants: {
-        include: {
+        select: {
+          id: true,
           user: {
             select: {
               id: true,
@@ -309,7 +318,14 @@ export async function findByIdWithListsExcludingUser(
             not: userId,
           },
         },
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          eventId: true,
+          title: true,
+          description: true,
+          createdAt: true,
+          updatedAt: true,
           user: {
             select: {
               id: true,
@@ -318,9 +334,24 @@ export async function findByIdWithListsExcludingUser(
             },
           },
           items: {
-            include: {
+            select: {
+              id: true,
+              listId: true,
+              title: true,
+              description: true,
+              amazonUrl: true,
+              createdAt: true,
+              updatedAt: true,
               contributions: {
-                include: {
+                select: {
+                  id: true,
+                  itemId: true,
+                  userId: true,
+                  amount: true,
+                  totalPrice: true,
+                  note: true,
+                  createdAt: true,
+                  updatedAt: true,
                   user: {
                     select: {
                       id: true,
@@ -335,7 +366,7 @@ export async function findByIdWithListsExcludingUser(
         },
       },
     },
-  });
+  }) as Promise<EventWithLists | null>;
 }
 
 /**

@@ -103,6 +103,9 @@ model Item {
 
   @@index([listId])
   @@index([addedByUserId])
+  @@index([isBonus])
+  @@index([createdAt])
+  @@index([isBonus, createdAt])
 }
 
 model Contribution {
@@ -124,6 +127,8 @@ model Contribution {
   @@unique([itemId, userId])
   @@index([itemId])
   @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
 model Account {
@@ -191,4 +196,7 @@ model Debt {
   @@index([fromUserId])
   @@index([toUserId])
   @@index([itemId])
+  @@index([isSettled])
+  @@index([fromUserId, isSettled])
+  @@index([toUserId, isSettled])
 }
