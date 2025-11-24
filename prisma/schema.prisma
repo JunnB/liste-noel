@@ -48,6 +48,8 @@ model Event {
 
   @@index([creatorId])
   @@index([invitationCode])
+  @@index([creatorId, createdAt])
+  @@index([createdAt])
 }
 
 model EventParticipant {
@@ -82,6 +84,7 @@ model List {
   @@unique([eventId, userId])
   @@index([userId])
   @@index([eventId])
+  @@index([eventId, userId])
 }
 
 model Item {
@@ -129,6 +132,7 @@ model Contribution {
   @@index([userId])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([userId, createdAt])
 }
 
 model Account {

@@ -144,7 +144,7 @@ export async function findByInvitationCode(
 }
 
 /**
- * Trouver tous les événements créés par un utilisateur
+ * Trouver tous les événements créés par un utilisateur - OPTIMISÉ
  */
 export async function findByCreatorId(
   userId: string
@@ -153,7 +153,14 @@ export async function findByCreatorId(
     where: {
       creatorId: userId,
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      invitationCode: true,
+      createdAt: true,
+      updatedAt: true,
+      creatorId: true,
       creator: {
         select: {
           id: true,
@@ -162,7 +169,11 @@ export async function findByCreatorId(
         },
       },
       participants: {
-        include: {
+        select: {
+          id: true,
+          eventId: true,
+          userId: true,
+          joinedAt: true,
           user: {
             select: {
               id: true,
@@ -176,11 +187,11 @@ export async function findByCreatorId(
     orderBy: {
       createdAt: "desc",
     },
-  });
+  }) as Promise<EventWithParticipants[]>;
 }
 
 /**
- * Trouver tous les événements où un utilisateur est participant
+ * Trouver tous les événements où un utilisateur est participant - OPTIMISÉ
  */
 export async function findByParticipantId(
   userId: string
@@ -193,7 +204,14 @@ export async function findByParticipantId(
         },
       },
     },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      invitationCode: true,
+      createdAt: true,
+      updatedAt: true,
+      creatorId: true,
       creator: {
         select: {
           id: true,
@@ -202,7 +220,11 @@ export async function findByParticipantId(
         },
       },
       participants: {
-        include: {
+        select: {
+          id: true,
+          eventId: true,
+          userId: true,
+          joinedAt: true,
           user: {
             select: {
               id: true,
@@ -216,7 +238,7 @@ export async function findByParticipantId(
     orderBy: {
       createdAt: "desc",
     },
-  });
+  }) as Promise<EventWithParticipants[]>;
 }
 
 /**

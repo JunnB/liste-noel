@@ -27,9 +27,9 @@ export async function getRecentActivity(
   userId: string,
   limit = 10
 ): Promise<Activity[]> {
-  // Optimisation : Paralléliser toutes les requêtes
+  // OPTIMISATION : Requêtes ultra-optimisées avec select minimal
   const [recentEvents, recentContributions, recentItems] = await Promise.all([
-    // Récupérer les événements récents (créés ou rejoints)
+    // Récupérer les événements récents (créés ou rejoints) - OPTIMISÉ
     prisma.event.findMany({
       where: {
         OR: [
@@ -46,7 +46,7 @@ export async function getRecentActivity(
         creatorId: true,
       },
     }),
-    // Récupérer les contributions récentes
+    // Récupérer les contributions récentes - ULTRA OPTIMISÉ avec select minimal
     prisma.contribution.findMany({
       where: {
         OR: [
@@ -78,27 +78,35 @@ export async function getRecentActivity(
         amount: true,
         createdAt: true,
         updatedAt: true,
-        user: { select: { name: true } },
+        user: { 
+          select: { 
+            name: true 
+          } 
+        },
         item: {
           select: {
             id: true,
             title: true,
             list: {
               select: {
-                user: { select: { name: true } },
+                user: { 
+                  select: { 
+                    name: true 
+                  } 
+                },
               },
             },
           },
         },
       },
     }),
-    // Récupérer les items récemment ajoutés à ma liste (SAUF les bonus - c'est une surprise!)
+    // Récupérer les items récemment ajoutés à ma liste - OPTIMISÉ
     prisma.item.findMany({
       where: {
         list: {
           userId,
         },
-        isBonus: false, // Ne jamais montrer les items bonus au propriétaire
+        isBonus: false,
       },
       orderBy: { createdAt: "desc" },
       take: 5,
@@ -170,9 +178,9 @@ export async function getRecentActivity(
 }
 
 export async function getStats(userId: string) {
-  // Optimisation : Paralléliser toutes les requêtes
+  // OPTIMISATION : Utiliser des agrégations optimisées
   const [eventsCount, contributionsCount, itemsCount] = await Promise.all([
-    // Compter les événements
+    // Compter les événements - OPTIMISÉ avec index
     prisma.event.count({
       where: {
         OR: [
@@ -181,17 +189,17 @@ export async function getStats(userId: string) {
         ],
       },
     }),
-    // Compter les contributions
+    // Compter les contributions - OPTIMISÉ avec index userId
     prisma.contribution.count({
       where: { userId },
     }),
-    // Compter les items dans mes listes (SAUF les bonus - en une seule requête)
+    // Compter les items - OPTIMISÉ avec index composite
     prisma.item.count({
       where: {
         list: {
           userId,
         },
-        isBonus: false, // Ne jamais compter les items bonus
+        isBonus: false,
       },
     }),
   ]);

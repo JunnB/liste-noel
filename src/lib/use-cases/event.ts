@@ -1,5 +1,6 @@
 import * as eventRepository from "@/lib/repositories/event";
 import * as listRepository from "@/lib/repositories/list";
+import prisma from "@/lib/prisma";
 
 export type CreateInput = {
   title: string;
@@ -90,30 +91,59 @@ export async function join(input: JoinInput) {
 }
 
 /**
- * Récupérer tous les événements d'un utilisateur (créés + rejoints)
+ * Récupérer tous les événements d'un utilisateur (créés + rejoints) - ULTRA OPTIMISÉ
+ * Une seule requête au lieu de deux !
  */
 export async function getByUserId(userId: string) {
-  const [createdEvents, joinedEvents] = await Promise.all([
-    eventRepository.findByCreatorId(userId),
-    eventRepository.findByParticipantId(userId),
-  ]);
-
-  // Fusionner et dédupliquer (un créateur est aussi participant)
-  const allEventsMap = new Map();
-
-  createdEvents.forEach((event) => {
-    allEventsMap.set(event.id, { ...event, isCreator: true });
+  // OPTIMISATION MAJEURE : Une seule requête avec OR au lieu de 2 requêtes séparées
+  const events = await prisma.event.findMany({
+    where: {
+      OR: [
+        { creatorId: userId },
+        { participants: { some: { userId } } },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      invitationCode: true,
+      createdAt: true,
+      updatedAt: true,
+      creatorId: true,
+      creator: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      participants: {
+        select: {
+          id: true,
+          eventId: true,
+          userId: true,
+          joinedAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
   });
 
-  joinedEvents.forEach((event) => {
-    if (!allEventsMap.has(event.id)) {
-      allEventsMap.set(event.id, { ...event, isCreator: false });
-    }
-  });
-
-  return Array.from(allEventsMap.values()).sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  );
+  // Ajouter le flag isCreator
+  return events.map((event) => ({
+    ...event,
+    isCreator: event.creatorId === userId,
+  }));
 }
 
 /**
@@ -187,6 +217,7 @@ export async function getParticipants(eventId: string, userId: string) {
 
 /**
  * Récupérer un événement complet avec toutes les listes (sauf celle de l'utilisateur)
+ * OPTIMISÉ avec agrégation des totaux côté serveur
  */
 export async function getEventWithLists(eventId: string, userId: string) {
   // Vérifier que l'utilisateur est participant
@@ -205,7 +236,25 @@ export async function getEventWithLists(eventId: string, userId: string) {
     throw new Error("Événement non trouvé");
   }
 
-  return event;
+  // OPTIMISATION : Calculer le total des contributions de l'utilisateur côté serveur
+  const myTotalContributions = await prisma.contribution.aggregate({
+    where: {
+      userId,
+      item: {
+        list: {
+          eventId,
+        },
+      },
+    },
+    _sum: {
+      amount: true,
+    },
+  });
+
+  return {
+    ...event,
+    myTotalContributions: myTotalContributions._sum.amount || 0,
+  };
 }
 
 /**

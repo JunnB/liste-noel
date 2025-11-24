@@ -12,7 +12,7 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60, // Cache la session pendant 5 minutes
+      maxAge: 10 * 60, // OPTIMISATION : Cache la session pendant 10 minutes (au lieu de 5)
     },
   },
 });

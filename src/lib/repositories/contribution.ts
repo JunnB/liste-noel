@@ -90,13 +90,27 @@ export async function deleteByItemIdAndUserId(
   });
 }
 
-export async function findByUserId(userId: string): Promise<ContributionWithDetails[]> {
-  // Optimisation : Requête simplifiée - récupérer uniquement les contributions de l'utilisateur
+export async function findByUserId(
+  userId: string,
+  limit?: number,
+  offset?: number
+): Promise<ContributionWithDetails[]> {
+  // OPTIMISATION MAJEURE : Utiliser select au lieu de include + pagination
   return prisma.contribution.findMany({
     where: {
       userId,
     },
-    include: {
+    select: {
+      id: true,
+      itemId: true,
+      userId: true,
+      amount: true,
+      totalPrice: true,
+      contributionType: true,
+      note: true,
+      hasAdvanced: true,
+      createdAt: true,
+      updatedAt: true,
       user: {
         select: {
           id: true,
@@ -105,7 +119,16 @@ export async function findByUserId(userId: string): Promise<ContributionWithDeta
         },
       },
       item: {
-        include: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          amazonUrl: true,
+          listId: true,
+          isBonus: true,
+          addedByUserId: true,
+          createdAt: true,
+          updatedAt: true,
           list: {
             select: {
               id: true,
@@ -125,7 +148,9 @@ export async function findByUserId(userId: string): Promise<ContributionWithDeta
     orderBy: {
       createdAt: 'desc',
     },
-  });
+    take: limit,
+    skip: offset,
+  }) as Promise<ContributionWithDetails[]>;
 }
 
 export async function findByItemId(itemId: string): Promise<ContributionWithUser[]> {

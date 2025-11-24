@@ -24,6 +24,7 @@ interface Event {
     user: User;
   }>;
   lists: any[]; // On laissera ParticipantsTab gérer le typage précis
+  myTotalContributions?: number; // OPTIMISATION : Total calculé côté serveur
 }
 
 interface EventViewProps {
@@ -52,28 +53,8 @@ export default function EventView({ event, myList, user, onRefresh }: EventViewP
     toast.success("Lien copié ! Partagez-le à vos proches.");
   };
 
-  // Calculer le total des contributions de l'utilisateur pour cet événement
-  const calculateMyTotalContributions = () => {
-    let total = 0;
-    
-    // Parcourir toutes les listes de l'événement
-    event.lists.forEach((list: any) => {
-      // Parcourir tous les items de chaque liste
-      list.items?.forEach((item: any) => {
-        // Parcourir toutes les contributions de chaque item
-        item.contributions?.forEach((contribution: any) => {
-          // Si c'est ma contribution, ajouter le montant au total
-          if (contribution.userId === user.id) {
-            total += contribution.amount;
-          }
-        });
-      });
-    });
-    
-    return total;
-  };
-
-  const myTotalContributions = calculateMyTotalContributions();
+  // OPTIMISATION : Utiliser le total calculé côté serveur au lieu de boucler côté client
+  const myTotalContributions = event.myTotalContributions || 0;
 
   return (
     <div className="max-w-4xl mx-auto">
